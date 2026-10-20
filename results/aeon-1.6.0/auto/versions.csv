@@ -1,0 +1,13 @@
+family,name,package,version,available,notes
+arima,aeon,aeon,1.6.0,True,aeon.forecasting.stats.AutoARIMA
+arima,statsforecast,statsforecast,2.1.1,True,statsforecast.models.AutoARIMA
+arima,sktime,sktime,1.2.0,True,sktime.forecasting.arima.AutoARIMA
+arima,skforecast,skforecast,0.26.0,True,skforecast.stats.Arima
+arima,pmdarima,pmdarima,2.1.1,True,pmdarima.auto_arima
+arima,statsmodels (grid),statsmodels,0.15.0,True,statsmodels ARIMA + AIC grid search written here
+ets,aeon,aeon,1.6.0,True,aeon.forecasting.stats.AutoETS
+ets,aeon (auto sp),aeon,1.6.0,True,aeon AutoETS estimating the seasonal period
+ets,statsforecast,statsforecast,2.1.1,True,statsforecast.models.AutoETS
+ets,sktime,sktime,1.2.0,True,sktime.forecasting.ets.AutoETS(auto)
+ets,skforecast,skforecast,0.26.0,True,skforecast.stats.Ets
+ets,statsmodels (grid),statsmodels,0.15.0,True,statsmodels ETSModel + AIC grid search written here

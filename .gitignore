@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+# numba on-disk caches
+*.nbi
+*.nbc
+# large, regenerable raw outputs; accuracy.csv is committed gzipped
+results/**/forecasts.csv
+results/**/accuracy.csv
+results/**/*.pdf
+# scratch and smoke runs
+results/**/quick*/
+scratch/

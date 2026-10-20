@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "horizon"
+version = "0.1.0"
+description = "Experiments comparing aeon's forecasters with other forecasting toolkits"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+dependencies = [
+    "aeon",
+    "numpy",
+    "pandas",
+    "scipy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+# the toolkits aeon is compared against; any that are missing are skipped
+competitors = [
+    "statsforecast",
+    "sktime",
+    "skforecast",
+    "pmdarima",
+    "statsmodels",
+]
+dev = ["pytest"]
+
+[project.scripts]
+horizon = "horizon.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

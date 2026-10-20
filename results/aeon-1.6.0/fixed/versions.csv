@@ -1,0 +1,12 @@
+mode,family,name,package,version,available,notes
+fixed,arima,aeon,aeon,1.6.0,True,fixed order: aeon ARIMA
+fixed,arima,statsforecast,statsforecast,2.1.1,True,fixed order: ARIMA
+fixed,arima,sktime,sktime,1.2.0,True,fixed order: sktime ARIMA (pmdarima)
+fixed,arima,skforecast,skforecast,0.26.0,True,fixed order: Arima(order)
+fixed,arima,pmdarima,pmdarima,2.1.1,True,fixed order: pmdarima.ARIMA
+fixed,arima,statsmodels,statsmodels,0.15.0,True,fixed order: ARIMA
+fixed,ets,aeon,aeon,1.6.0,True,fixed order: aeon ETS (phi always estimated)
+fixed,ets,statsforecast,statsforecast,2.1.1,True,fixed order: AutoETS(model)
+fixed,ets,sktime,sktime,1.2.0,True,fixed order: AutoETS(auto=False)
+fixed,ets,skforecast,skforecast,0.26.0,True,fixed order: Ets(model)
+fixed,ets,statsmodels,statsmodels,0.15.0,True,fixed order: ETSModel

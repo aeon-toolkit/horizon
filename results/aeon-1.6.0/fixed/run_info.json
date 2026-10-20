@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-20",
+  "command": "run_all.py --mode fixed (pre-horizon benchmark script, same experiment code)",
+  "reconstructed": "run predates run_info.json; fields filled in from the aeon release commit and versions.csv",
+  "aeon": {
+    "version": "1.6.0",
+    "path": "aeon repo, editable install",
+    "git_commit": "b694b1c03",
+    "git_branch": "main",
+    "git_dirty": false
+  },
+  "packages": {
+    "aeon": "1.6.0",
+    "statsforecast": "2.1.1",
+    "sktime": "1.2.0",
+    "skforecast": "0.26.0",
+    "pmdarima": "2.1.1",
+    "statsmodels": "0.15.0"
+  },
+  "threads": "1"
+}
