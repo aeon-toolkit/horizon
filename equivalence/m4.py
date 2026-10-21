@@ -5,7 +5,10 @@ submissions on the official test sets, then compares each aeon forecaster with
 its published counterpart series by series:
 
 - AutoETS against ``ETS`` (R ``forecast::ets``),
-- AutoARIMA against ``ARIMA`` (R ``forecast::auto.arima``).
+- AutoARIMA against ``ARIMA`` (R ``forecast::auto.arima``),
+- SCUM against submission ``036`` (Petropoulos and Svetunkov's SCUM, in R).
+
+Official forecasts are read from ``submission-<name>.csv``.
 
 For each frequency and error measure (sMAPE, MASE) it reports
 
@@ -36,8 +39,9 @@ from statsmodels.stats.multitest import multipletests
 from horizon.sweep import _tost
 from m4_score import FREQS, M4_HOME, owa_table, read_results, score_runs
 
-# aeon forecaster -> published M4 counterpart
-PAIRS = {"AutoETS": "ETS", "AutoARIMA": "ARIMA"}
+# aeon forecaster -> published M4 counterpart (official submission name)
+PAIRS = {"AutoETS": "ETS", "AutoARIMA": "ARIMA", "SCUM": "036"}
+REFERENCE_LABELS = {"ETS": "R ets", "ARIMA": "R auto.arima", "036": "SCUM (M4 036)"}
 TIE_TOL = 1e-9
 
 
@@ -106,7 +110,8 @@ def compare(per_series: pd.DataFrame, margin: float, alpha: float):
             for freq in FREQS + ["all"]:
                 w = wide if freq == "all" else wide.loc[freq]
                 ours, theirs = w[aeon_name], w[f"M4 {ref}"]
-                key = {"aeon": aeon_name, "reference": f"R {ref}", "metric": metric,
+                key = {"aeon": aeon_name, "reference": REFERENCE_LABELS[ref],
+                       "metric": metric,
                        "frequency": freq}
                 if freq != "all":
                     pair_rows.append({**key, **signed_rank(ours, theirs)})
@@ -138,7 +143,7 @@ def main() -> None:
             runs[aeon_name] = read_results(path)
             provenance[aeon_name] = _provenance(path)
     if not runs:
-        raise SystemExit(f"no AutoETS/AutoARIMA results under {args.results}/aeon")
+        raise SystemExit(f"no {'/'.join(PAIRS)} results under {args.results}/aeon")
     official = [PAIRS[name] for name in runs] + ["Naive2"]
     per_series = score_runs(runs, official, args.official_dir)
 

@@ -68,6 +68,40 @@
         "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
         "version": "1.6.0"
       }
+    },
+    "SCUM": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "aeon"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "SCUM"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "n_jobs": 60,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/aeon-8585c7bf",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      }
     }
   }
 }

@@ -7,7 +7,8 @@ commit **8585c7bf** (branch `bench/arima-ets`: `ajb/arima`, PR #3931, merged wit
 
 1. **M4, against the published benchmarks.** aeon's forecasts for all 100,000
    M4 series, compared with the official M4 forecasts of R's `forecast::ets` and
-   `forecast::auto.arima`.
+   `forecast::auto.arima`, and of SCUM (Petropoulos and Svetunkov's entry 036,
+   rank 6).
 2. **Simulated series, against other Python toolkits.** The horizon benchmark:
    series from known ARIMA and ETS processes, compared with statsforecast,
    sktime, skforecast, pmdarima and statsmodels, with model selection (`auto`)
@@ -29,6 +30,7 @@ Two kinds of test are used throughout, on paired per-series errors:
 |---|---|---|
 | **AutoETS** | **Equivalent** overall and on yearly, quarterly, monthly, weekly and daily. Hourly: aeon 8% more accurate, inconclusive. | No competitor significantly better in any comparison. |
 | **AutoARIMA** | **Equivalent** overall and on yearly, quarterly, weekly and daily. Monthly: equivalent on sMAPE, MASE just outside the margin (ratio 1.047, upper limit 1.050). Hourly: **aeon 58-61% worse**, because aeon has no seasonal ARIMA (see caveats). | No competitor significantly better in any comparison. |
+| **SCUM** | **Equivalent** to the published SCUM overall (ratio 1.004) and on yearly, quarterly, monthly and daily (within 1%). Hourly: aeon 14-17% more accurate. Weekly: **aeon 15-16% worse**. | Not in the simulated benchmark. |
 
 The difference tests are stricter, and on M4 they separate aeon from R on
 several frequencies, in both directions, with small effects (rank-biserial
@@ -48,45 +50,55 @@ series deseasonalised as in the M4 benchmarks: 90% ACF seasonality test, then
 classical multiplicative decomposition. This reproduces the official Naive2
 forecasts exactly on all 100,000 series. The official submissions score exactly
 their published values: ETS sMAPE 12.725, MASE 1.680, OWA 0.908; ARIMA 12.669,
-1.666, 0.903.
+1.666, 0.903. SCUM is aeon's `SCUM(season_length=m)` as shipped: the median of
+AutoETS, AutoCES, AutoARIMA and DOTM. Its AutoARIMA member sees the raw series.
 
 **OWA** (relative to Naive2, lower is better; `owa.csv`)
 
-| | aeon AutoETS | R ets | aeon AutoARIMA | R auto.arima |
-|---|---|---|---|---|
-| Yearly (23,000) | 0.905 | 0.903 | 0.918 | 0.892 |
-| Quarterly (24,000) | 0.892 | 0.890 | 0.894 | 0.898 |
-| Monthly (48,000) | 0.929 | 0.914 | 0.918 | 0.903 |
-| Weekly (359) | 0.938 | 0.931 | 0.902 | 0.932 |
-| Daily (4,227) | 1.001 | 0.996 | 1.012 | 1.044 |
-| Hourly (414) | 0.788 | 0.852 | 0.692 | 0.577 |
-| **All** | **0.914** | **0.908** | **0.915** | **0.903** |
+| | aeon AutoETS | R ets | aeon AutoARIMA | R auto.arima | statsforecast AutoARIMA | aeon SCUM | SCUM (036) |
+|---|---|---|---|---|---|---|---|
+| Yearly (23,000) | 0.905 | 0.903 | 0.918 | 0.892 | 0.906 | 0.804 | 0.806 |
+| Quarterly (24,000) | 0.892 | 0.890 | 0.894 | 0.898 | 0.900 | 0.854 | 0.852 |
+| Monthly (48,000) | 0.929 | 0.914 | 0.918 | 0.903 | 0.904 | 0.872 | 0.876 |
+| Weekly (359) | 0.938 | 0.931 | 0.902 | 0.932 | 0.868 | 0.902 | 0.751 |
+| Daily (4,227) | 1.001 | 0.996 | 1.012 | 1.044 | 1.006 | 0.983 | 0.984 |
+| Hourly (414) | 0.788 | 0.852 | 0.692 | 0.577 | 0.578 | 0.651 | 0.663 |
+| **All** | **0.914** | **0.908** | **0.915** | **0.903** | **0.907** | **0.845** | **0.848** |
 
-**Equivalence** (TOST, ±5%; geometric mean of per-series MASE ratios aeon / R,
-with 90% interval; `tost.csv`, which also has sMAPE)
+statsforecast 2.1.1's AutoARIMA (a port of `auto.arima`, seasonal, run here on
+all of M4) is a second reference. It matches R on monthly and hourly, but is
+also behind R on yearly (0.906 against 0.892). So about half of aeon's yearly
+gap (0.918) is shared by the Python port.
 
-| | AutoETS / ets | verdict | AutoARIMA / auto.arima | verdict |
-|---|---|---|---|---|
-| Yearly | 0.988 (0.984-0.993) | equivalent | 1.029 (1.025-1.033) | equivalent |
-| Quarterly | 1.010 (1.006-1.014) | equivalent | 1.012 (1.008-1.016) | equivalent |
-| Monthly | 1.038 (1.035-1.041) | equivalent | 1.047 (1.044-1.050) | inconclusive |
-| Weekly | 1.015 (1.001-1.029) | equivalent | 0.980 (0.954-1.006) | equivalent |
-| Daily | 1.003 (1.000-1.005) | equivalent | 0.979 (0.973-0.986) | equivalent |
-| Hourly | 0.912 (0.866-0.962) | inconclusive | 1.614 (1.494-1.743) | aeon worse |
-| **All** | **1.018 (1.015-1.020)** | **equivalent** | **1.033 (1.031-1.035)** | **equivalent** |
+**Equivalence** (TOST, ±5%; geometric mean of per-series MASE ratios aeon /
+reference, with 90% interval; `tost.csv`, which also has sMAPE)
+
+| | AutoETS / ets | verdict | AutoARIMA / auto.arima | verdict | SCUM / 036 | verdict |
+|---|---|---|---|---|---|---|
+| Yearly | 0.988 (0.984-0.993) | equivalent | 1.029 (1.025-1.033) | equivalent | 0.998 (0.995-1.000) | equivalent |
+| Quarterly | 1.010 (1.006-1.014) | equivalent | 1.012 (1.008-1.016) | equivalent | 1.005 (1.002-1.007) | equivalent |
+| Monthly | 1.038 (1.035-1.041) | equivalent | 1.047 (1.044-1.050) | inconclusive | 1.008 (1.006-1.009) | equivalent |
+| Weekly | 1.015 (1.001-1.029) | equivalent | 0.980 (0.954-1.006) | equivalent | 1.148 (1.110-1.187) | aeon worse |
+| Daily | 1.003 (1.000-1.005) | equivalent | 0.979 (0.973-0.986) | equivalent | 1.000 (0.998-1.001) | equivalent |
+| Hourly | 0.912 (0.866-0.962) | inconclusive | 1.614 (1.494-1.743) | aeon worse | 0.856 (0.809-0.907) | aeon better |
+| **All** | **1.018 (1.015-1.020)** | **equivalent** | **1.033 (1.031-1.035)** | **equivalent** | **1.004 (1.003-1.005)** | **equivalent** |
+
+The weekly SCUM gap may come from the seasonal period. These runs give weekly
+series period 1, as in the M4 benchmarks; the published SCUM may have used 52.
+This has not been checked.
 
 **Difference** (Wilcoxon signed-rank on per-series MASE, Holm corrected over 12
 tests per method; rank-biserial r < 0 means aeon has lower errors;
 `signed_rank.csv`, which also has sMAPE)
 
-| | AutoETS: r | verdict | AutoARIMA: r | verdict |
-|---|---|---|---|---|
-| Yearly | -0.10 | aeon better | +0.10 | R better |
-| Quarterly | +0.04 | R better | +0.03 | R better |
-| Monthly | +0.08 | R better | +0.11 | R better |
-| Weekly | +0.03 | no difference | +0.04 | no difference |
-| Daily | +0.07 | R better | +0.04 | no difference |
-| Hourly | -0.10 | no difference | +0.39 | R better |
+| | AutoETS: r | verdict | AutoARIMA: r | verdict | SCUM: r | verdict |
+|---|---|---|---|---|---|---|
+| Yearly | -0.10 | aeon better | +0.10 | R better | -0.06 | aeon better |
+| Quarterly | +0.04 | R better | +0.03 | R better | +0.03 | R better |
+| Monthly | +0.08 | R better | +0.11 | R better | +0.02 | R better |
+| Weekly | +0.03 | no difference | +0.04 | no difference | +0.36 | R better |
+| Daily | +0.07 | R better | +0.04 | no difference | -0.00 | no difference |
+| Hourly | -0.10 | no difference | +0.39 | R better | -0.37 | aeon better |
 
 For scale: r = 0.10 corresponds roughly to R having the lower error on 55%
 of the series where the two differ, and aeon on 45%.
@@ -203,7 +215,7 @@ checkout. Both scripts refuse a checkout with uncommitted changes, use a fresh
 numba cache, and name results after the commit.
 
 ```bash
-equivalence/run_m4.sh        $AEON   # ~2 CPU-hours: M4 runs, then m4.py
+equivalence/run_m4.sh        $AEON   # ~5 CPU-hours: M4 runs, then m4.py
 equivalence/run_simulated.sh $AEON   # ~1 hour: both modes in parallel, then simulated.py
 ```
 
@@ -219,13 +231,13 @@ python equivalence/simulated.py --run results/aeon-<commit> \
 `--margin` sets the TOST margin (default 0.05). M4 data and the official
 forecasts are read from `/local/ajb2u23/Data/Forecasting/m4`
 (`m4_<frequency>_dataset.tsf`; `official/` holds the test sets and
-`submission-{ETS,ARIMA,Naive2}.csv` from the
+`submission-{ETS,ARIMA,036,Naive2}.csv` from the
 [M4-methods repository](https://github.com/Mcompetitions/M4-methods)).
 
 | file | |
 |---|---|
 | `run_m4.sh`, `run_simulated.sh` | run aeon, then summarise |
-| `m4.py` | M4: OWA, signed-rank and TOST against the published forecasts |
+| `m4.py` | M4: OWA, signed-rank and TOST of AutoETS, AutoARIMA and SCUM against the published forecasts |
 | `m4_score.py` | M4 scoring (sMAPE, MASE, OWA as in the M4 evaluation) |
 | `simulated.py` | simulated: verdict counts, TOST, timing table |
 | `results/aeon-<commit>/m4/` | `owa.csv`, `signed_rank.csv`, `tost.csv`, `run_info.json`; `per_series.csv.gz` is regenerated, not committed |
@@ -256,6 +268,22 @@ information criterion: aeon selects by AIC from the CSS likelihood, while R's
 `auto.arima` uses AICc (`ic = "aicc"`), which penalises extra parameters much
 more on short series such as M4 yearly (median length about 30).
 
-## In progress
+## Other aeon forecasters on M4
 
-- A fresh statsforecast 2.1.1 AutoARIMA on M4, as a seasonal Python reference.
+Same commit, all with the M4 seasonal period. None has a published M4
+counterpart, so this is accuracy only. OWA:
+
+| | DOTM | AutoCES | CES | SCUM |
+|---|---|---|---|---|
+| Yearly | 0.806 | 0.872 | 0.872 | 0.804 |
+| Quarterly | 0.887 | 0.907 | 0.973 | 0.854 |
+| Monthly | 0.916 | 0.895 | 1.011 | 0.872 |
+| Weekly | 0.957 | 1.005 | 1.005 | 0.902 |
+| Daily | 0.997 | 1.019 | 1.019 | 0.983 |
+| Hourly | 0.990 | 0.781 | 4.285 | 0.651 |
+| **All** | **0.870** | **0.894** | **0.963** | **0.845** |
+
+`CES` here is aeon's default `CES(model="N")`, non-seasonal CES, which ignores
+the seasonal period. It fails on hourly (MASE above 10 on 139 of 414 series).
+It has not been deseasonalised, unlike the other non-seasonal forecasters.
+AutoCES, which selects among the seasonal forms, is fine.

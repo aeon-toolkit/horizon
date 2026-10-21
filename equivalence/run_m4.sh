@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run aeon AutoETS and AutoARIMA on all 100,000 M4 series, then score them
+# Run aeon AutoETS, AutoARIMA and SCUM on all 100,000 M4 series, then score them
 # against the published M4 forecasts (equivalence/m4.py).
 #
 #   equivalence/run_m4.sh AEON_CHECKOUT [OUT_ROOT] [N_JOBS]
@@ -9,7 +9,8 @@
 # (default OUT_ROOT /local/ajb2u23/Results/Forecasting), the summary to
 # equivalence/results/aeon-<short commit>/m4/. AutoARIMA is non-seasonal, so it
 # is fitted to M4-style deseasonalised series (--deseasonalise), as the M4
-# benchmarks were; AutoETS gets the seasonal period. About 1 CPU-hour each.
+# benchmarks were; AutoETS and SCUM get the seasonal period. About 1 CPU-hour
+# each for AutoETS and AutoARIMA, 3 for SCUM.
 set -euo pipefail
 AEON=$(realpath "${1:?usage: run_m4.sh AEON_CHECKOUT [OUT_ROOT] [N_JOBS]}")
 OUT_ROOT=${2:-/local/ajb2u23/Results/Forecasting}
@@ -25,7 +26,7 @@ export PYTHONPATH=$AEON
 export LD_LIBRARY_PATH=$ENV/lib
 export NUMBA_CACHE_DIR=$(mktemp -d)  # fresh: numba does not see changes across files
 echo "aeon $(git -C "$AEON" rev-parse HEAD) from $AEON -> $OUT"
-for F in AutoETS AutoARIMA; do
+for F in AutoETS AutoARIMA SCUM; do
     EXTRA=; [ $F = AutoARIMA ] && EXTRA=--deseasonalise
     $ENV/bin/python scripts/m_comp_experiments.py --datasets M4 --limit-per-type 0 \
         --forecasters $F --backends aeon $EXTRA --n-jobs "$N_JOBS" \
