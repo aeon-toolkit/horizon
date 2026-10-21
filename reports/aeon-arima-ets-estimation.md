@@ -281,3 +281,9 @@ statsmodels are 1.2-1.3x faster than aeon at length 10,000 in auto mode. Plots: 
 - The ETS comparison gives each toolkit the true seasonal period; aeon's
   estimated-period variant is reported separately.
 - Run times are single threaded on one machine.
+- The M,A,M m=12 simulator shifts a series up when it goes non-positive (about
+  1% of its series at lengths 100 and 500), so those few series are not
+  ETS(M,A,M) data. Every toolkit and both aeon versions see the same shifted
+  series, so the comparisons stay paired, but the M,A,M rows are slightly
+  contaminated. Found in the length sweep, where it affects most M,A,M series
+  from length 3,000.
