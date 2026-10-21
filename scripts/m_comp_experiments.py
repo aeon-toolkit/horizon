@@ -111,11 +111,12 @@ NUMBA_WARMUP_FORECASTERS = frozenset(
         "SCUM",
     }
 )
-# aeon forecasters with no seasonal component. With --deseasonalise they are
-# fitted to M4-style deseasonalised series, as the M4 benchmarks were. Set in
-# the environment so the spawned workers inherit it.
+# aeon forecasters with no seasonal component (CES is built with its default
+# model="N"). With --deseasonalise they are fitted to M4-style deseasonalised
+# series, as the M4 benchmarks were. Set in the environment so the spawned
+# workers inherit it.
 NONSEASONAL_AEON_FORECASTERS = frozenset(
-    {"ARIMA", "AutoARIMA", "Theta", "TAR", "AutoTAR", "TVP"}
+    {"ARIMA", "AutoARIMA", "Theta", "TAR", "AutoTAR", "TVP", "CES"}
 )
 DESEASONALISE_ENV_VAR = "M_COMP_DESEASONALISE"
 # "max_p,max_d,max_q" for aeon AutoARIMA (--arima-max-order); unset: aeon defaults

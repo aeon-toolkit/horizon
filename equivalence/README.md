@@ -273,17 +273,22 @@ more on short series such as M4 yearly (median length about 30).
 Same commit, all with the M4 seasonal period. None has a published M4
 counterpart, so this is accuracy only. OWA:
 
-| | DOTM | AutoCES | CES | SCUM |
-|---|---|---|---|---|
-| Yearly | 0.806 | 0.872 | 0.872 | 0.804 |
-| Quarterly | 0.887 | 0.907 | 0.973 | 0.854 |
-| Monthly | 0.916 | 0.895 | 1.011 | 0.872 |
-| Weekly | 0.957 | 1.005 | 1.005 | 0.902 |
-| Daily | 0.997 | 1.019 | 1.019 | 0.983 |
-| Hourly | 0.990 | 0.781 | 4.285 | 0.651 |
-| **All** | **0.870** | **0.894** | **0.963** | **0.845** |
+| | DOTM | AutoCES | CES (deseasonalised) | CES (raw) | SCUM |
+|---|---|---|---|---|---|
+| Yearly | 0.806 | 0.872 | 0.872 | 0.872 | 0.804 |
+| Quarterly | 0.887 | 0.907 | 0.911 | 0.973 | 0.854 |
+| Monthly | 0.916 | 0.895 | 0.914 | 1.011 | 0.872 |
+| Weekly | 0.957 | 1.005 | 1.005 | 1.005 | 0.902 |
+| Daily | 0.997 | 1.019 | 1.019 | 1.019 | 0.983 |
+| Hourly | 0.990 | 0.781 | 1.150 | 4.285 | 0.651 |
+| **All** | **0.870** | **0.894** | **0.903** | **0.963** | **0.845** |
 
-`CES` here is aeon's default `CES(model="N")`, non-seasonal CES, which ignores
-the seasonal period. It fails on hourly (MASE above 10 on 139 of 414 series).
-It has not been deseasonalised, unlike the other non-seasonal forecasters.
-AutoCES, which selects among the seasonal forms, is fine.
+`CES` is aeon's default `CES(model="N")`, non-seasonal CES, which ignores the
+seasonal period. Like the other non-seasonal forecasters it is now run with
+`--deseasonalise` (M4-style), output in `.../aeon-8585c7bf-ces-deseason/`.
+Without it, CES fails on hourly (MASE above 10 on 139 of 414 series); with it,
+hourly is still worse than Naive2 (OWA 1.150) and well behind AutoCES
+(0.781); the cause has not been investigated. AutoCES selects among the non-seasonal and
+seasonal forms (N, S, P, F) itself, so it is run on the raw series, as are
+DOTM and SCUM. Yearly, weekly and daily have period 1, so all CES variants are
+identical there.
