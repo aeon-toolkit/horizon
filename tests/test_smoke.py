@@ -97,3 +97,43 @@ def test_run_info_records_aeon():
     info = run_info(["run"])
     assert info["aeon"]["version"]
     assert json.dumps(info)
+
+
+def test_sweep_quick(tmp_path):
+    """A tiny sweep runs in parallel, merges its parts and is analysed."""
+    import pandas as pd
+
+    from horizon.sweep import analyse_sweep, run_sweep_accuracy, run_sweep_timing
+
+    acc = run_sweep_accuracy(
+        tmp_path, lengths=[60, 120], replicates=3, workers=2,
+        families=["arima"], toolkits=["aeon", "statsmodels (grid)"],
+    )
+    # 6 ARIMA processes x 2 lengths x 3 replicates x 2 toolkits
+    assert len(acc) == 6 * 2 * 3 * 2
+    # lengths get independent seeds
+    assert acc.groupby("n")["seed"].apply(set).pipe(lambda s: not (s[60] & s[120]))
+    run_sweep_timing(
+        tmp_path, lengths=[60, 120], repeats=2,
+        processes={"arima": ["arma_11"]}, toolkits=["aeon"],
+    )
+    analyse_sweep(tmp_path)
+    eq = pd.read_csv(tmp_path / "equivalence.csv")
+    assert set(eq["verdict"]) <= {"equivalent", "aeon better", "aeon worse", "inconclusive"}
+    assert (eq["ratio_ci_low"] <= eq["ratio"]).all()
+    assert (eq["ratio"] <= eq["ratio_ci_high"]).all()
+    assert (tmp_path / "plots" / "equivalence_arima.png").exists()
+    assert (tmp_path / "plots" / "speedup_arima_arma_11.png").exists()
+
+
+def test_tost():
+    """TOST: identical forecasts are equivalent, a 20% gap is not."""
+    import numpy as np
+
+    from horizon.sweep import _tost
+
+    rng = np.random.default_rng(0)
+    assert _tost(rng.normal(0, 0.05, 400), 0.05, 0.05)["p_tost"] < 0.05
+    r = _tost(rng.normal(np.log(1.2), 0.05, 400), 0.05, 0.05)
+    assert r["p_tost"] > 0.5 and r["ratio_ci_low"] > 1.05
+    assert _tost(np.zeros(10), 0.05, 0.05)["p_tost"] == 0.0

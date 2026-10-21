@@ -13,6 +13,13 @@ analyse
 
         python -m horizon analyse results/my-run
 
+sweep
+    Accuracy equivalence and run time over a fine grid of lengths (100 to
+    1000 in steps of 100, then to 10000 in steps of 1000), in parallel::
+
+        python -m horizon sweep --mode auto --out results/my-run/sweep-auto --workers 56
+        python -m horizon sweep --analyse-only --out results/my-run/sweep-auto
+
 compare
     Compare two runs of the same experiment (e.g. two aeon versions)::
 
@@ -135,6 +142,28 @@ def _cmd_run(args, argv):
     analyse_all(out)
 
 
+def _cmd_sweep(args, argv):
+    from horizon.sweep import analyse_sweep, run_sweep_accuracy, run_sweep_timing
+
+    out = Path(args.out)
+    if not args.analyse_only:
+        out.mkdir(parents=True, exist_ok=True)
+        info = run_info(argv)
+        (out / "run_info.json").write_text(json.dumps(info, indent=2))
+        print(f"aeon {info['aeon']['version']} commit "
+              f"{info['aeon']['git_commit'][:12]} from {info['aeon']['path']}"
+              + (" (uncommitted changes)" if info["aeon"]["git_dirty"] else ""))
+        if args.only in (None, "accuracy"):
+            run_sweep_accuracy(out, mode=args.mode, lengths=args.lengths,
+                               replicates=args.replicates, workers=args.workers,
+                               families=args.families, toolkits=args.toolkits)
+        if args.only in (None, "timing"):
+            run_sweep_timing(out, mode=args.mode, lengths=args.lengths,
+                             repeats=args.repeats, toolkits=args.toolkits,
+                             time_budget=args.time_budget)
+    analyse_sweep(out, margin=args.margin)
+
+
 def _cmd_analyse(args, argv):
     from horizon.analyse import analyse_all
 
@@ -182,6 +211,24 @@ def main(argv=None):
     p.add_argument("--repeats", type=int, default=5)
     p.add_argument("--time-budget", type=float, default=30.0)
     p.set_defaults(func=_cmd_run)
+
+    from horizon.sweep import SWEEP_LENGTHS
+
+    p = sub.add_parser("sweep", help="accuracy equivalence and run time over many lengths")
+    p.add_argument("--out", required=True, help="output directory")
+    p.add_argument("--mode", choices=["auto", "fixed"], default="auto")
+    p.add_argument("--only", choices=["accuracy", "timing"], default=None)
+    p.add_argument("--analyse-only", action="store_true")
+    p.add_argument("--families", nargs="+", default=["arima", "ets"])
+    p.add_argument("--toolkits", nargs="+", default=None)
+    p.add_argument("--lengths", type=int, nargs="+", default=SWEEP_LENGTHS)
+    p.add_argument("--replicates", type=int, default=50)
+    p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--repeats", type=int, default=5)
+    p.add_argument("--time-budget", type=float, default=30.0)
+    p.add_argument("--margin", type=float, default=0.05,
+                   help="equivalence margin on the MASE ratio (0.05: within 5%%)")
+    p.set_defaults(func=_cmd_sweep)
 
     p = sub.add_parser("analyse", help="rebuild tables and plots of a run")
     p.add_argument("run")

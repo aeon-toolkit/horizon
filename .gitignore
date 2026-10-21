@@ -11,6 +11,8 @@ dist/
 results/**/forecasts.csv
 results/**/accuracy.csv
 results/**/*.pdf
+# per-job outputs of sweeps, merged into the sweep directory
+results/**/parts/
 # scratch and smoke runs
 results/**/quick*/
 scratch/

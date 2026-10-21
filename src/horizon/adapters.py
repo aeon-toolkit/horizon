@@ -21,9 +21,19 @@ Fairness notes
 * For ETS, the *true* seasonal period of the DGP is given to every toolkit, so
   no implementation is penalised for failing to detect it. aeon is additionally
   entered as ``aeon (auto sp)``, which estimates the period from the data.
-* aeon's AutoETS searches error x {none, additive} trend x seasonality but no
-  damped trend. Competitors keep their default candidate sets (which include
-  damped trends) because that is what a user of each toolkit gets.
+* aeon 1.6.0's AutoETS always estimates a damped trend when there is a trend;
+  from the ARIMA/ETS fix branch it searches damped and undamped trends.
+  Competitors keep their default candidate sets because that is what a user of
+  each toolkit gets.
+* sktime has no ARIMA or ETS implementation of its own: ``AutoARIMA`` and
+  ``ARIMA`` wrap pmdarima (statsmodels SARIMAX underneath) and ``AutoETS``
+  wraps statsmodels' ``ETSModel``, with sktime's own loop over candidate
+  models. Given the true model, sktime and pmdarima (ARIMA) or statsmodels
+  (ETS) give identical forecasts. sktime's AutoARIMA is faster than calling
+  ``pmdarima.auto_arima`` directly only because sktime passes
+  ``with_intercept=True``, whereas pmdarima's default ``"auto"`` searches the
+  orders without an intercept and then again with one (about twice the fits).
+  Both are run with their own defaults.
 * statsmodels has no built-in automatic selection, so the grid search that a
   user would have to write themselves is included here and timed as part of
   the method. Those entries are labelled ``(grid)``.
