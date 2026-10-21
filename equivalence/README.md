@@ -288,7 +288,14 @@ seasonal period. Like the other non-seasonal forecasters it is now run with
 `--deseasonalise` (M4-style), output in `.../aeon-8585c7bf-ces-deseason/`.
 Without it, CES fails on hourly (MASE above 10 on 139 of 414 series); with it,
 hourly is still worse than Naive2 (OWA 1.150) and well behind AutoCES
-(0.781); the cause has not been investigated. AutoCES selects among the non-seasonal and
+(0.781). This is the method, not aeon's code: statsforecast
+`AutoCES(model="N")` fitted to the same deseasonalised hourly series gives
+the same forecasts (median MASE ratio 1.000000, mean MASE 2.580 for both).
+Non-seasonal CES is worse than Naive2 on 79% of hourly series. On about a
+quarter of them its forecasts drift downwards over the 48 steps (5th
+percentile: the second day's mean is 0.63 times the first's), and the fitted
+real smoothing parameter sits at its upper bound (1.8) on 326 of 414 series.
+AutoCES selects among the non-seasonal and
 seasonal forms (N, S, P, F) itself, so it is run on the raw series, as are
 DOTM and SCUM. Yearly, weekly and daily have period 1, so all CES variants are
 identical there.
