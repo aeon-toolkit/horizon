@@ -82,5 +82,8 @@ Each result directory holds `run_info.json`, the raw per-series
 | --- | --- |
 | `results/aeon-1.6.0/` | release 1.6.0 |
 | `results/aeon-fix-439ed8bc/` | branch `fix/forecasting-arima-ets-estimation` at 439ed8bc (ARIMA/ETS estimation fixes); comparison with 1.6.0 in `results/comparisons/fix-439ed8bc-vs-1.6.0/` |
+| `results/aeon-8585c7bf/` | `bench/arima-ets` at 8585c7bf (`ajb/arima` PR #3931 with R's KPSS lag rule, merged with `ajb/ets` with `AutoETS(restrict=True)`); comparison with 439ed8bc in `results/comparisons/8585c7bf-vs-439ed8bc/` |
 
-See `reports/` for the written comparisons.
+See `reports/` for the written comparisons, and `equivalence/` for the evidence
+that aeon's AutoETS and AutoARIMA match the published M4 forecasts of R's
+`ets` and `auto.arima` and the other Python toolkits, with run times.
