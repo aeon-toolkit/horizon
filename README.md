@@ -81,5 +81,6 @@ Each result directory holds `run_info.json`, the raw per-series
 | run | aeon |
 | --- | --- |
 | `results/aeon-1.6.0/` | release 1.6.0 |
+| `results/aeon-fix-439ed8bc/` | branch `fix/forecasting-arima-ets-estimation` at 439ed8bc (ARIMA/ETS estimation fixes); comparison with 1.6.0 in `results/comparisons/fix-439ed8bc-vs-1.6.0/` |
 
 See `reports/` for the written comparisons.
