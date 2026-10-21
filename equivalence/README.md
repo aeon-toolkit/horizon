@@ -30,7 +30,7 @@ Two kinds of test are used throughout, on paired per-series errors:
 |---|---|---|
 | **AutoETS** | **Equivalent** overall and on yearly, quarterly, monthly, weekly and daily. Hourly: aeon 8% more accurate, inconclusive. | No competitor significantly better in any comparison. |
 | **AutoARIMA** | **Equivalent** overall and on yearly, quarterly, weekly and daily. Monthly: equivalent on sMAPE, MASE just outside the margin (ratio 1.047, upper limit 1.050). Hourly: **aeon 58-61% worse**, because aeon has no seasonal ARIMA (see caveats). | No competitor significantly better in any comparison. |
-| **SCUM** | **Equivalent** to the published SCUM overall (ratio 1.004) and on yearly, quarterly, monthly and daily (within 1%). Hourly: aeon 14-17% more accurate. Weekly: **aeon 15-16% worse**. | Not in the simulated benchmark. |
+| **SCUM** | **Equivalent** to the published SCUM overall (ratio 1.004) and, when run with 036's seasonal periods (weekly 52, daily 7, hourly 168), on every frequency (all ratios within 1%). With the M4 benchmark periods used in the tables below, weekly is 15% worse and hourly 14% better. | Not in the simulated benchmark. |
 
 The difference tests are stricter, and on M4 they separate aeon from R on
 several frequencies, in both directions, with small effects (rank-biserial
@@ -83,9 +83,27 @@ reference, with 90% interval; `tost.csv`, which also has sMAPE)
 | Hourly | 0.912 (0.866-0.962) | inconclusive | 1.614 (1.494-1.743) | aeon worse | 0.856 (0.809-0.907) | aeon better |
 | **All** | **1.018 (1.015-1.020)** | **equivalent** | **1.033 (1.031-1.035)** | **equivalent** | **1.004 (1.003-1.005)** | **equivalent** |
 
-The weekly SCUM gap may come from the seasonal period. These runs give weekly
-series period 1, as in the M4 benchmarks; the published SCUM may have used 52.
-This has not been checked.
+**SCUM with 036's seasonal periods.** The weekly and hourly SCUM differences
+come from the seasonal period. The published code
+([M4-methods/036](https://github.com/Mcompetitions/M4-methods/tree/master/036%20-%20fotpetr))
+gives weekly series period 52, daily 7 and hourly 168, where these runs use the
+M4 benchmark periods (1, 1, 24). Rerun with 036's periods
+(`--m4-period weekly=52 daily=7 hourly=168`, output in
+`.../aeon-8585c7bf-scum036periods/`; yearly, quarterly and monthly unchanged):
+
+| SCUM / 036 | OWA aeon | OWA 036 | MASE ratio (90% CI) | TOST | signed-rank r | verdict |
+|---|---|---|---|---|---|---|
+| Weekly | 0.753 | 0.751 | 1.005 (0.979-1.031) | equivalent | +0.01 | no difference |
+| Daily | 0.986 | 0.984 | 1.002 (1.000-1.004) | equivalent | +0.11 | R better |
+| Hourly | 0.653 | 0.663 | 0.993 (0.965-1.022) | equivalent | +0.01 | no difference |
+| **All** | **0.845** | **0.848** | **1.004 (1.003-1.006)** | **equivalent** | | |
+
+The only remaining structural difference is in the published code's one
+switch: for frequency above 24 (weekly and hourly) it uses `smooth::es` for
+the ETS member instead of `forecast::ets`; aeon uses `AutoETS` throughout.
+It also uses seasonal `auto.arima`, where aeon's ARIMA member is non-seasonal.
+Neither shows up in accuracy at these periods. The run took 1.7x the CPU time
+of the period-1/24 run on daily (3570 against 2081 s), about 2x on weekly.
 
 **Difference** (Wilcoxon signed-rank on per-series MASE, Holm corrected over 12
 tests per method; rank-biserial r < 0 means aeon has lower errors;

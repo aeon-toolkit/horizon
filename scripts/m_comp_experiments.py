@@ -451,6 +451,7 @@ def _select_m4_series(args: argparse.Namespace) -> list[SelectedSeries]:
     for series_type, (filename, start_index, period) in M4_FILES.items():
         if wanted_types and series_type not in wanted_types:
             continue
+        period = args.m4_period.get(series_type, period)
         path = args.m4_home / filename
         limit = math.inf if args.limit_per_type <= 0 else int(args.limit_per_type)
         for offset, (series_name, values, h, frequency) in enumerate(
@@ -1770,6 +1771,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--m4-period",
+        nargs="+",
+        default=[],
+        metavar="TYPE=PERIOD",
+        help=(
+            "Override the seasonal period given to forecasters for an M4 series "
+            "type, e.g. weekly=52 daily=7 hourly=168 as in M4 entry 036 (SCUM). "
+            "Default: the M4 benchmark periods (1, 4, 12, 1, 1, 24)."
+        ),
+    )
+    parser.add_argument(
         "--quiet", action="store_true", help="Suppress progress output."
     )
     parser.add_argument(
@@ -1777,7 +1789,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Write only the test results file and skip the train results file.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        args.m4_period = {
+            k: int(v) for k, v in (item.split("=", 1) for item in args.m4_period)
+        }
+    except ValueError:
+        parser.error("--m4-period takes TYPE=PERIOD pairs, e.g. weekly=52")
+    unknown = set(args.m4_period) - set(M4_FILES)
+    if unknown:
+        parser.error(f"--m4-period: unknown M4 types {sorted(unknown)}")
+    return args
 
 
 def _append_completed_row(
