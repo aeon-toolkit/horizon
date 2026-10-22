@@ -729,9 +729,15 @@ def _statsmodels_ets_fixed(self, y, h, sp):
 # ---------------------------------------------------------------------------
 
 
-def _smooth_ets_label(model_type):
-    """smooth's model code, e.g. "AAdN", in the shared ``ETS(E,T,S)`` format."""
-    return f"ETS({model_type[0]},{model_type[1:-1]},{model_type[-1]})"
+def _smooth_ets_label(m):
+    """The fitted ETS model in the shared ``ETS(E,T,S)`` format.
+
+    Read from ``model_name`` (e.g. "ETS(MAdN)"): in smooth 1.2.0
+    ``model_type`` sometimes still returns the requested pool code ("ZXN")
+    after selection.
+    """
+    code = m.model_name.split("(", 1)[1].split(")", 1)[0]
+    return f"ETS({code[0]},{code[1:-1]},{code[-1]})"
 
 
 def _smooth_arima_label(m):
@@ -755,7 +761,7 @@ def _smooth_ets(self, y, h, sp):
     # default model pool "ZXZ": error and season selected, additive trends only
     m = ES(lags=[sp] if sp > 1 else [1])
     m.fit(y)
-    self.selected_model = _smooth_ets_label(m.model_type)
+    self.selected_model = _smooth_ets_label(m)
     return np.asarray(m.predict(h=h).mean)
 
 
@@ -778,7 +784,7 @@ def _smooth_ets_fixed(self, y, h, sp):
         model = model[:2] + "d" + model[2:]
     m = ES(model=model, lags=[sp] if self.spec["seasonal"] else [1])
     m.fit(y)
-    self.selected_model = _smooth_ets_label(m.model_type)
+    self.selected_model = _smooth_ets_label(m)
     return np.asarray(m.predict(h=h).mean)
 
 

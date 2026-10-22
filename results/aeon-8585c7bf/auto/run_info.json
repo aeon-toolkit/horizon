@@ -45,7 +45,8 @@
       "date": "2026-10-22",
       "toolkit": "smooth 1.2.0",
       "reason": "added toolkit; run in results/aeon-8585c7bf-smooth/auto (same seeds) and merged",
-      "command": "python -m horizon run --mode auto --toolkits smooth --out results/aeon-8585c7bf-smooth/auto"
+      "command": "python -m horizon run --mode auto --toolkits smooth --out results/aeon-8585c7bf-smooth/auto",
+      "note": "auto ETS rows rerun 2026-10-22 with selected_model read from model_name (model_type is unreliable in smooth 1.2.0); forecasts identical"
     }
   ]
 }
