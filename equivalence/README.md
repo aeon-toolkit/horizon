@@ -338,13 +338,13 @@ more on short series such as M4 yearly (median length about 30).
 aeon's other statistical forecasters with an established counterpart, tested
 the same way on a smaller scale (`paper/table_other_stats.md`):
 
-| aeon | reference | simulated ratio n=100 | n=500 | M4 ratio | M4 TOST | M4 freq. aeon/ref better | speed-up n=100 |
-|---|---|---|---|---|---|---|---|
-| Theta | statsforecast Theta | 0.999+ | 0.998+ | 1.000 | equivalent | 4/1 | 1.9 |
-| Theta | M4 Theta (published) | - | - | 1.000 | equivalent | 3/1 | - |
-| DOTM | statsforecast DOTM | 1.002 | 1.001 | 0.990 | equivalent | 3/2 | 3.0 |
-| AutoCES | statsforecast AutoCES | 1.000 | 1.000 | 1.000 | equivalent | 0/0 | 1.2 |
-| AutoCES | smooth AutoCES | 1.001- | 1.004- | 1.000 | equivalent | 1/4 | 31.4 |
+| aeon | reference | simulated ratio n=100 | n=500 | M4 ratio | M4 TOST | M4 freq. aeon/ref better | aeon ms n=100 | ref. ms n=100 | speed-up |
+|---|---|---|---|---|---|---|---|---|---|
+| Theta | statsforecast Theta | 0.999+ | 0.998+ | 1.000 | equivalent | 4/1 | 0.31 | 0.59 | 1.9 |
+| Theta | M4 Theta (published) | - | - | 1.000 | equivalent | 3/1 | - | - | - |
+| DOTM | statsforecast DOTM | 1.002 | 1.001 | 0.990 | equivalent | 3/2 | 0.50 | 1.49 | 3.0 |
+| AutoCES | statsforecast AutoCES | 1.000 | 1.000 | 1.000 | equivalent | 0/0 | 0.63 | 0.72 | 1.2 |
+| AutoCES | smooth AutoCES | 1.001- | 1.004- | 1.000 | equivalent | 1/4 | 0.63 | 19.75 | 31.4 |
 
 - **Simulated** (`results/aeon-8585c7bf/sim-other`, `scripts/sim_other_stats.py`):
   the 12 horizon processes, lengths 100 and 500, 100 series each; ratio of
@@ -358,8 +358,9 @@ the same way on a smaller scale (`paper/table_other_stats.md`):
   smooth 1.2.0 (`/local/.../statsforecast-2.1.1`, `.../smooth-1.2.0`), and
   M4's official Theta forecasts.
 - **Run time** (`results/aeon-8585c7bf/timing-other`,
-  `scripts/timing_other_stats.py`): reference time / aeon time at length 100,
-  geometric mean over the 12 processes, 100 series each, single-threaded.
+  `scripts/timing_other_stats.py`): milliseconds to fit and forecast one
+  series of length 100, single-threaded, geometric mean over the 12 processes
+  of the median over 100 series; speed-up is reference time / aeon time.
   aeon's Theta is deseasonalised as on M4, and that cost is included.
 - aeon's AutoCES and statsforecast's give practically the same forecasts
   (ratio 1.000 with a zero-width interval). smooth's AutoCES, the original

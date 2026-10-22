@@ -169,10 +169,12 @@ def write_other_stats(sim_dir: Path, timing_dir: Path, m4_dir: Path, out: Path) 
     for aeon, family, toolkit, ref in OTHER:
         t = m4[(m4.aeon == aeon) & (m4.reference == ref)]
         n_sig = m4_sr[(m4_sr.aeon == aeon) & (m4_sr.reference == ref)]["verdict"]
-        speed = "-"
+        speed = aeon_ms = ref_ms = "-"
         if toolkit is not None and toolkit in med.loc[aeon]:
             x = med.loc[aeon]
-            speed = f"{float(np.exp(np.log(x[toolkit] / x['aeon']).mean())):.1f}"
+            gm = lambda v: float(np.exp(np.log(v).mean()))  # noqa: E731
+            aeon_ms, ref_ms = f"{1000 * gm(x['aeon']):.2f}", f"{1000 * gm(x[toolkit]):.2f}"
+            speed = f"{gm(x[toolkit] / x['aeon']):.1f}"
         rows.append([
             aeon, ref,
             sim_cell(family, toolkit, 100) if family else "-",
@@ -180,19 +182,20 @@ def write_other_stats(sim_dir: Path, timing_dir: Path, m4_dir: Path, out: Path) 
             f"{t.iloc[0]['ratio']:.3f}" if len(t) else "-",
             t.iloc[0]["verdict"] if len(t) else "-",
             f"{(n_sig == 'aeon better').sum()}/{(n_sig == 'reference better').sum()}",
-            speed,
+            aeon_ms, ref_ms, speed,
         ])
     head = ["aeon", "reference", "sim. ratio n=100", "sim. ratio n=500",
-            "M4 ratio", "M4 TOST", "M4 freq. aeon/ref better", "speed-up n=100"]
+            "M4 ratio", "M4 TOST", "M4 freq. aeon/ref better",
+            "aeon ms n=100", "ref. ms n=100", "speed-up n=100"]
     note = ("Ratios are geometric means of per-series MASE ratios aeon / reference "
             "(< 1: aeon more accurate). Simulated: 12 processes x 100 series, + or - "
             "where a Wilcoxon signed-rank test (Holm) finds aeon or the reference "
             "more accurate; every simulated ratio is equivalent within 5% (TOST). "
             "M4: all 100,000 series; TOST verdict overall, and the number of the six "
             "frequencies where the signed-rank test (Holm) favours aeon / the "
-            "reference. Speed-up: reference time / aeon time at length 100, "
-            "geometric mean of medians over the 12 processes (100 series each), "
-            "single-threaded.")
+            "reference. Run time at length 100: milliseconds to fit and forecast "
+            "one series, single-threaded, geometric mean over the 12 processes of "
+            "the median over 100 series; speed-up is reference time / aeon time.")
     md = ["| " + " | ".join(head) + " |", "|---" * len(head) + "|"]
     md += ["| " + " | ".join(r) + " |" for r in rows]
     (out / "table_other_stats.md").write_text("\n".join(md + ["", note, ""]))
@@ -204,7 +207,7 @@ def write_other_stats(sim_dir: Path, timing_dir: Path, m4_dir: Path, out: Path) 
 
     tex = [" & ".join(tex_cell(c) for c in r) + " \\\\" for r in rows]
     (out / "table_other_stats.tex").write_text("\n".join(
-        [f"% {note}", "\\begin{tabular}{llcccccc}", "\\toprule",
+        [f"% {note}", "\\begin{tabular}{llcccccccc}", "\\toprule",
          " & ".join(head) + " \\\\", "\\midrule", *tex, "\\bottomrule",
          "\\end{tabular}", ""]))
 
