@@ -6,9 +6,10 @@
   the Holm-corrected Wilcoxon signed-rank test.
 - ``table_m4.{md,tex}``: aeon AutoETS and AutoARIMA against the published M4
   forecasts of R's ets and auto.arima, by frequency.
-- ``fig_timing.{pdf,png}``: median fit-and-forecast time against series length
-  for AutoARIMA (ARMA(1,1)) and AutoETS (ETS(A,A,A), m=12), auto mode;
-  ``fig_timing_more.{pdf,png}`` the same for ARIMA(1,1,0) and ETS(A,A,N).
+- ``fig_timing_arima.{pdf,png}``: median fit-and-forecast time against series
+  length for AutoARIMA on ARMA(1,1) and ARIMA(1,1,0), auto mode;
+  ``fig_timing_ets.{pdf,png}`` the same for AutoETS on ETS(A,A,N) and
+  ETS(A,A,A), m=12.
 
     python equivalence/paper.py --simulated equivalence/results/aeon-8585c7bf/simulated \\
         --significance results/aeon-8585c7bf --sweep results/aeon-8585c7bf/sweep-auto-r20 \\
@@ -177,10 +178,10 @@ def main() -> None:
     write_simulated(df, args.out)
     write_m4(args.m4, args.out)
     summary = pd.read_csv(args.sweep / "timing_summary.csv")
-    timing_figure(summary, [("arima", "arma_11"), ("ets", "ets_aaa_m12")],
-                  args.out / "fig_timing")
-    timing_figure(summary, [("arima", "arima_110"), ("ets", "ets_aan")],
-                  args.out / "fig_timing_more")
+    timing_figure(summary, [("arima", "arma_11"), ("arima", "arima_110")],
+                  args.out / "fig_timing_arima")
+    timing_figure(summary, [("ets", "ets_aan"), ("ets", "ets_aaa_m12")],
+                  args.out / "fig_timing_ets")
     sweep_info = json.loads((args.sweep / "run_info.json").read_text())["aeon"]
     (args.out / "run_info.json").write_text(json.dumps(
         {k: str(v) for k, v in vars(args).items()} | {"sweep_aeon": sweep_info},

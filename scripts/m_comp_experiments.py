@@ -138,6 +138,7 @@ BACKEND_ALIASES = {
     "aeon": "aeon",
     "statsforecast": "statsforecast",
     "sf": "statsforecast",
+    "smooth": "smooth",
 }
 M4_FILES = {
     "yearly": ("m4_yearly_dataset.tsf", 1, 1),
@@ -957,6 +958,37 @@ def _fit_statsforecast_model(model, y: np.ndarray, h: int) -> FitResult:
     )
 
 
+def _fit_smooth(name: str, y: np.ndarray, h: int, period: int) -> FitResult:
+    """Fit smooth's CES (Svetunkov's ADAM package, Python port) with its defaults."""
+    from smooth import CES, AutoCES
+
+    lags = [max(1, int(period))]
+    if name == "AutoCES":
+        model = AutoCES(lags=lags)
+    elif name == "CES":
+        model = CES(lags=lags)
+    else:
+        raise ValueError(f"smooth backend does not support {name!r}.")
+    start = time.perf_counter()
+    # AutoCES.fit returns the selected CES model (as R's auto.ces does)
+    model = model.fit(y)
+    train_seconds = time.perf_counter() - start
+    forecast = _as_float_array(model.predict(h=int(h)).mean)
+    elapsed = time.perf_counter() - start
+    model_name = str(getattr(model, "model_name", type(model).__name__))
+    return FitResult(
+        forecast=forecast,
+        fitted_values=None,
+        residuals=None,
+        train_seconds=train_seconds,
+        elapsed_seconds=elapsed,
+        status="ok",
+        model=model_name,
+        params={"lags": lags},
+        fit_stats={},
+    )
+
+
 def _fit_statsforecast(name: str, y: np.ndarray, h: int, period: int) -> FitResult:
     """Fit a named statsforecast equivalent and return persistent outputs."""
     from statsforecast.models import ARIMA as SFARIMA
@@ -1281,11 +1313,13 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
     if name == "TCNForecaster":
         from aeon.forecasting.deep_learning import TCNForecaster
 
-        return TCNForecaster(window=window, horizon=h)
+        # one-step model, forecast recursively (TCN predicts a single step)
+        return TCNForecaster(window=window)
     if name == "DeepARForecaster":
         from aeon.forecasting.deep_learning import DeepARForecaster
 
-        return DeepARForecaster(window=window, horizon=h)
+        # one-step model, forecast recursively with iterative_forecast
+        return DeepARForecaster(window=window)
     if name == "NBeatsForecaster":
         from aeon.forecasting.deep_learning import NBeatsForecaster
 
@@ -1436,6 +1470,8 @@ def fit_forecaster(
             return _fit_aeon(canonical_name, y, h, period)
         if canonical_backend == "statsforecast":
             return _fit_statsforecast(canonical_name, y, h, period)
+        if canonical_backend == "smooth":
+            return _fit_smooth(canonical_name, y, h, period)
     except Exception as exc:  # noqa: BLE001
         return FitResult(
             forecast=None,
@@ -1559,6 +1595,17 @@ def _script_args(args: argparse.Namespace) -> dict[str, Any]:
     return {k: v for k, v in vars(args).items() if k != "aeon_info"}
 
 
+def _backend_version(backend: str) -> dict[str, str]:
+    """Installed version of the package behind a non-aeon backend."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    package = BACKEND_ALIASES.get(backend, backend)
+    try:
+        return {package: version(package)}
+    except PackageNotFoundError:
+        return {package: "unknown"}
+
+
 def _write_header(
     path: Path,
     *,
@@ -1591,6 +1638,7 @@ def _write_header(
         "ensembles",
         f"# @script_args {_json_dumps(_script_args(args))}",
         f"# @aeon {_json_dumps(args.aeon_info)}",
+        f"# @package_version {_json_dumps(_backend_version(backend))}",
         f"# @python {platform.python_version()}",
         f"# @host {platform.node()} cpus={os.cpu_count()}",
         f"# @columns {','.join(columns)}",
@@ -1763,7 +1811,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Forecasters to run. Aeon accepts the current exported forecasters; "
             "statsforecast only supports ARIMA/AutoARIMA, ETS/AutoETS, "
-            "CES/AutoCES, DOTM, and Theta."
+            "CES/AutoCES, DOTM, and Theta; smooth only CES and AutoCES."
         ),
     )
     parser.add_argument(
