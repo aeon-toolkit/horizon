@@ -8,11 +8,11 @@ Summarises a horizon benchmark run (``run_simulated.sh``, i.e.
   process;
 - equivalence tests: TOST on per-series log MASE ratios with a 5% margin
   (``horizon.sweep.equivalence``), pooled and per process;
-- run time: aeon's median fit-and-forecast time and each competitor's time
+- run time: aeon's median fit-and-forecast time and each other toolkit's time
   relative to it, from ``timing_summary.csv``.
 
 aeon variants (e.g. ``aeon (auto sp)``) are reported separately from the
-competitors.
+other toolkits.
 
     python equivalence/simulated.py --run results/aeon-8585c7bf \\
         --out equivalence/results/aeon-8585c7bf/simulated
@@ -37,11 +37,11 @@ def _scope(df: pd.DataFrame) -> pd.Series:
 
 
 def difference_verdicts(sig: pd.DataFrame) -> pd.DataFrame:
-    """Signed-rank verdict counts, competitor better / no difference / aeon better."""
-    sig = sig[~sig["competitor"].str.startswith("aeon")]
+    """Signed-rank verdict counts, other toolkit better / no difference / aeon better."""
+    sig = sig[~sig["toolkit"].str.startswith("aeon")]
     verdict = sig["verdict"].where(
         sig["verdict"].isin(["no significant difference", "aeon better"]),
-        "competitor better",
+        "other toolkit better",
     )
     return (sig.assign(scope=_scope(sig), verdict=verdict)
             .groupby(["scope", "verdict"]).size().unstack(fill_value=0))
@@ -91,15 +91,15 @@ def main() -> None:
         {"run": str(args.run), "margin": args.margin, "alpha": args.alpha,
          "aeon": info}, indent=2))
 
-    comps = eq[~eq["competitor"].str.startswith("aeon")]
-    eq_counts = (comps.assign(scope=_scope(comps))
+    others = eq[~eq["toolkit"].str.startswith("aeon")]
+    eq_counts = (others.assign(scope=_scope(others))
                  .groupby(["mode", "scope", "verdict"]).size().unstack(fill_value=0))
     eq_counts.to_csv(args.out / "tost_verdicts.csv")
     with pd.option_context("display.width", 200,
                            "display.float_format", "{:.3g}".format):
-        print("signed-rank verdicts against competitors\n", diff.to_string(index=False))
+        print("signed-rank verdicts against the other toolkits\n", diff.to_string(index=False))
         print(f"\nTOST verdicts (margin {args.margin:.0%})\n", eq_counts.to_string())
-        print("\ncompetitor time / aeon time\n", timing.to_string(index=False))
+        print("\ntoolkit time / aeon time\n", timing.to_string(index=False))
 
 
 if __name__ == "__main__":

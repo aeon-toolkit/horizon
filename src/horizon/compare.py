@@ -5,7 +5,7 @@
     forecasts from the true model. Shows how much model selection costs.
 ``compare_runs``
     The same experiment run twice, typically with two versions of aeon (e.g. a
-    release against a development branch). The competitors are identical in
+    release against a development branch). The other toolkits are identical in
     both runs, so they act as a control: their numbers should not move, while
     aeon's show the effect of the change.
 
@@ -108,14 +108,14 @@ def compare_runs(run_a: Path, run_b: Path, out_dir: Path) -> dict[str, pd.DataFr
 
     ``accuracy_change.csv``
         Per family, length and process (and pooled): median MASE of aeon in
-        each run, the competitors' range, and a paired Wilcoxon test of aeon B
+        each run, the other toolkits' range, and a paired Wilcoxon test of aeon B
         against aeon A on the same series (Holm corrected within family and
-        length). Also checks the competitors are unchanged.
+        length). Also checks the other toolkits are unchanged.
     ``verdict_change.csv``
-        aeon against each competitor in run A and in run B, from each run's
+        aeon against each other toolkit in run A and in run B, from each run's
         ``significance.csv``.
     ``timing_change.csv`` and ``plots/timing_<process>.png``
-        Median run time per length for aeon in both runs and the competitors.
+        Median run time per length for aeon in both runs and the other toolkits.
 
     Parameters
     ----------
@@ -143,13 +143,13 @@ def compare_runs(run_a: Path, run_b: Path, out_dir: Path) -> dict[str, pd.DataFr
         group = []
         for scope, df in scopes:
             ref = df[df["toolkit"] == REFERENCE]
-            comp = df[~df["toolkit"].str.startswith("aeon")]
+            others = df[~df["toolkit"].str.startswith("aeon")]
             if ref.empty:
                 continue
-            comp_med = comp.groupby("toolkit")["mase_b"].median()
+            others_med = others.groupby("toolkit")["mase_b"].median()
             d = (ref["mase_b"] - ref["mase_a"]).to_numpy()
-            # competitors are the control: their MASE should not change
-            control = (comp["mase_b"] - comp["mase_a"]).abs().max()
+            # the other toolkits are the control: their MASE should not change
+            control = (others["mase_b"] - others["mase_a"]).abs().max()
             group.append(
                 {
                     "family": family,
@@ -158,12 +158,12 @@ def compare_runs(run_a: Path, run_b: Path, out_dir: Path) -> dict[str, pd.DataFr
                     "n_series": len(d),
                     "aeon_a_median_mase": float(ref["mase_a"].median()),
                     "aeon_b_median_mase": float(ref["mase_b"].median()),
-                    "competitors_min_median_mase": float(comp_med.min()),
-                    "competitors_max_median_mase": float(comp_med.max()),
+                    "toolkits_min_median_mase": float(others_med.min()),
+                    "toolkits_max_median_mase": float(others_med.max()),
                     "aeon_b_wins": int(np.sum(d < -1e-12)),
                     "aeon_b_losses": int(np.sum(d > 1e-12)),
                     "p_value": _paired_wilcoxon(d),
-                    "competitor_max_abs_change": float(control),
+                    "toolkits_max_abs_change": float(control),
                     "aeon_a_median_time_s": float(ref["time_s_a"].median()),
                     "aeon_b_median_time_s": float(ref["time_s_b"].median()),
                 }
@@ -183,8 +183,8 @@ def compare_runs(run_a: Path, run_b: Path, out_dir: Path) -> dict[str, pd.DataFr
     sig_a = Path(run_a) / "significance.csv"
     sig_b = Path(run_b) / "significance.csv"
     if sig_a.exists() and sig_b.exists():
-        cols = ["family", "n", "scope", "competitor"]
-        keep = cols + ["reference_median", "competitor_median", "p_holm", "verdict"]
+        cols = ["family", "n", "scope", "toolkit"]
+        keep = cols + ["reference_median", "toolkit_median", "p_holm", "verdict"]
         v = pd.read_csv(sig_a)[keep].merge(
             pd.read_csv(sig_b)[keep], on=cols, suffixes=("_a", "_b")
         )
@@ -209,7 +209,7 @@ def compare_runs(run_a: Path, run_b: Path, out_dir: Path) -> dict[str, pd.DataFr
 
 
 def _plot_timing_change(t: pd.DataFrame, label_a: str, label_b: str, plots_dir: Path):
-    """Run time against length: aeon in both runs, competitors from run B."""
+    """Run time against length: aeon in both runs, other toolkits from run B."""
     colours = _colours(t["toolkit"].unique())
     for (family, process), block in t.groupby(["family", "process"]):
         fig, ax = plt.subplots(figsize=(6.5, 4.5))

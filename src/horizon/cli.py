@@ -184,7 +184,7 @@ def _cmd_compare(args, argv):
     acc = res["accuracy_change"]
     cols = [
         "family", "n", "scope", "aeon_a_median_mase", "aeon_b_median_mase",
-        "competitors_min_median_mase", "competitors_max_median_mase", "p_holm",
+        "toolkits_min_median_mase", "toolkits_max_median_mase", "p_holm",
         "change",
     ]
     print(acc[cols].to_string(index=False, float_format="%.4g"))

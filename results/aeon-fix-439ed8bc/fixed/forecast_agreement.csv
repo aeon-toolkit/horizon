@@ -1,4 +1,4 @@
-family,process,n,competitor,n_series,median_rel_forecast_diff,mean_rel_forecast_diff,same_model_rate
+family,process,n,toolkit,n_series,median_rel_forecast_diff,mean_rel_forecast_diff,same_model_rate
 arima,ar_2,100,pmdarima,100,0.01263759667813839,0.016700797891817682,1.0
 arima,ar_2,500,pmdarima,100,0.0025777685523843135,0.003137453368847544,1.0
 arima,arima_011_drift,100,pmdarima,100,0.02690752163345258,0.042338182873122604,1.0

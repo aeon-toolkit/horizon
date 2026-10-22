@@ -64,9 +64,9 @@ def test_run_analyse_compare(tmp_path):
 
     res = compare_runs(out, out, tmp_path / "cmp")
     acc = res["accuracy_change"]
-    # identical runs: no change for aeon or the competitors
+    # identical runs: no change for aeon or the other toolkits
     assert (acc["aeon_a_median_mase"] == acc["aeon_b_median_mase"]).all()
-    assert (acc["competitor_max_abs_change"] == 0).all()
+    assert (acc["toolkits_max_abs_change"] == 0).all()
     assert (acc["change"] == "no significant change").all()
 
 

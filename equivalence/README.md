@@ -28,15 +28,15 @@ Two kinds of test are used throughout, on paired per-series errors:
 
 | | M4, against R (TOST ±5%) | Simulated, against Python toolkits |
 |---|---|---|
-| **AutoETS** | **Equivalent** overall and on yearly, quarterly, monthly, weekly and daily. Hourly: aeon 8% more accurate, inconclusive. | No competitor significantly better in any comparison. |
-| **AutoARIMA** | **Equivalent** overall and on yearly, quarterly, weekly and daily. Monthly: equivalent on sMAPE, MASE just outside the margin (ratio 1.047, upper limit 1.050). Hourly: **aeon 58-61% worse**, because aeon has no seasonal ARIMA (see caveats). | No competitor significantly better in any comparison. |
+| **AutoETS** | **Equivalent** overall and on yearly, quarterly, monthly, weekly and daily. Hourly: aeon 8% more accurate, inconclusive. | No other toolkit significantly better in any comparison. |
+| **AutoARIMA** | **Equivalent** overall and on yearly, quarterly, weekly and daily. Monthly: equivalent on sMAPE, MASE just outside the margin (ratio 1.047, upper limit 1.050). Hourly: **aeon 58-61% worse**, because aeon has no seasonal ARIMA (see caveats). | No other toolkit significantly better in any comparison. |
 | **SCUM** | **Equivalent** to the published SCUM overall (ratio 1.004) and, when run with 036's seasonal periods (weekly 52, daily 7, hourly 168), on every frequency (all ratios within 1%). With the M4 benchmark periods used in the tables below, weekly is 15% worse and hourly 14% better. | Not in the simulated benchmark. |
 
 The difference tests are stricter, and on M4 they separate aeon from R on
 several frequencies, in both directions, with small effects (rank-biserial
 |r| <= 0.11, except hourly ARIMA, r = 0.39). Details below.
 
-**Run time:** aeon's AutoETS is faster than every competitor at every length.
+**Run time:** aeon's AutoETS is faster than every other toolkit at every length.
 aeon's AutoARIMA is the fastest on short series; skforecast's auto-ARIMA is
 faster from about 500 observations, and statsforecast's at 10,000. Automatic
 fits take 1.8-4.8x as long as in aeon 1.6.0, whose estimation was wrong (see
@@ -139,14 +139,14 @@ and 500; see the main README and `reports/aeon-arima-ets-estimation.md`.
 **Difference** (Wilcoxon signed-rank on per-series MASE, Holm corrected;
 `difference_verdicts.csv`)
 
-| mode | comparisons | competitor better | no difference | aeon better |
+| mode | comparisons | other toolkit better | no difference | aeon better |
 |---|---|---|---|---|
 | auto | 18 pooled | 0 | 16 | 2 |
 | auto | 108 per process | 0 | 105 | 3 |
 | fixed | 18 pooled | 0 | 14 | 4 |
 | fixed | 108 per process | 0 | 101 | 7 |
 
-No competitor is significantly more accurate than aeon in any of the 252
+No other toolkit is significantly more accurate than aeon in any of the 252
 comparisons. Every "aeon better" verdict is for ETS: against statsforecast,
 and in fixed mode also against sktime and statsmodels, which share one engine.
 
@@ -174,8 +174,8 @@ per-process accuracy changed significantly in either mode.
 
 Median seconds to fit and forecast one series, single threaded, JIT
 compilation excluded, 5 repeats, on an otherwise idle machine
-(`equivalence/results/aeon-8585c7bf/simulated/timing.csv`). The competitor columns give
-competitor time / aeon time: above 1, aeon is faster.
+(`equivalence/results/aeon-8585c7bf/simulated/timing.csv`). The toolkit columns give
+toolkit time / aeon time: above 1, aeon is faster.
 
 | mode | process | n | aeon (s) | pmdarima | skforecast | sktime | statsforecast | statsmodels |
 |---|---|---|---|---|---|---|---|---|
@@ -190,9 +190,9 @@ competitor time / aeon time: above 1, aeon is faster.
 | fixed | ETS A,A,A m=12 | 100 | 0.001 | | 21.2 | 44.0 | 4.3 | 41.5 |
 | fixed | ETS A,A,A m=12 | 10,000 | 0.045 | | 37.5 | 10.8 | 6.9 | 10.7 |
 
-- **AutoETS** is faster than every competitor at every length: 3-7x faster
+- **AutoETS** is faster than every other toolkit at every length: 3-7x faster
   than statsforecast, 5-47x faster than the others.
-- **AutoARIMA** is faster than every competitor at 100-200 observations.
+- **AutoARIMA** is faster than every other toolkit at 100-200 observations.
   skforecast is level at 500 and faster from 1,000 (3.6x at 1,000, 8x at
   10,000). statsforecast is level at 5,000 and 1.2x faster at 10,000. With the
   order given (fixed mode), aeon is faster than all but skforecast, which

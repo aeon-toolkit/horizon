@@ -16,9 +16,9 @@ equivalence test (TOST) on the paired MASE ratio.
     Run time against length on a few processes, a handful of jobs in parallel
     so they do not contend, merged into ``timing.csv``.
 ``equivalence``
-    For aeon against each competitor, per (family, length) pooled over
+    For aeon against each other toolkit, per (family, length) pooled over
     processes and per process: the geometric mean of the per-series MASE ratio
-    aeon / competitor with a ``1 - 2 alpha`` confidence interval (paired t on
+    aeon / toolkit with a ``1 - 2 alpha`` confidence interval (paired t on
     the log ratio), and the TOST p-value for the ratio lying within
     ``[1 / (1 + margin), 1 + margin]``.
 ``analyse_sweep``
@@ -195,7 +195,7 @@ def _tost(d: np.ndarray, margin: float, alpha: float) -> dict:
 def equivalence(
     acc: pd.DataFrame, margin: float = 0.05, alpha: float = 0.05
 ) -> pd.DataFrame:
-    """TOST equivalence of aeon and each competitor on paired MASE ratios.
+    """TOST equivalence of aeon and each other toolkit on paired MASE ratios.
 
     ``ratio`` < 1 means aeon is more accurate. ``verdict`` is "equivalent" if
     the TOST p-value is below ``alpha`` (the ``1 - 2 alpha`` interval lies
@@ -207,10 +207,10 @@ def equivalence(
     wide = acc.pivot_table(index=key, columns="toolkit", values="mase").reset_index()
     upper, lower = 1 + margin, 1 / (1 + margin)
     rows = []
-    for comp in [c for c in wide.columns if c not in key and c != REFERENCE]:
-        pair = wide[key + [REFERENCE, comp]].dropna()
-        pair = pair[(pair[REFERENCE] > 0) & (pair[comp] > 0)]
-        pair = pair.assign(d=np.log(pair[REFERENCE] / pair[comp]))
+    for tk in [c for c in wide.columns if c not in key and c != REFERENCE]:
+        pair = wide[key + [REFERENCE, tk]].dropna()
+        pair = pair[(pair[REFERENCE] > 0) & (pair[tk] > 0)]
+        pair = pair.assign(d=np.log(pair[REFERENCE] / pair[tk]))
         for (family, n), g in pair.groupby(["family", "n"]):
             for scope, gg in [("all", g), *g.groupby("process")]:
                 r = _tost(gg["d"].to_numpy(), margin, alpha)
@@ -223,7 +223,7 @@ def equivalence(
                 else:
                     verdict = "inconclusive"
                 rows.append(
-                    {"family": family, "n": n, "scope": scope, "competitor": comp,
+                    {"family": family, "n": n, "scope": scope, "toolkit": tk,
                      **r, "margin": margin, "verdict": verdict}
                 )
     return pd.DataFrame(rows)
@@ -239,23 +239,23 @@ def plot_equivalence(eq: pd.DataFrame, plots_dir: Path, margin: float) -> None:
 
     pooled = eq[eq["scope"] == "all"]
     for family, g in pooled.groupby("family"):
-        comps = sorted(g["competitor"].unique())
-        colours = _colours(comps)
+        toolkits = sorted(g["toolkit"].unique())
+        colours = _colours(toolkits)
         fig, ax = plt.subplots(figsize=(8, 4.5))
         ax.axhspan(1 / (1 + margin), 1 + margin, color="0.9", zorder=0,
                    label=f"equivalence margin ±{margin:.0%}")
         ax.axhline(1, color="0.5", lw=0.8)
-        for i, comp in enumerate(comps):
-            c = g[g["competitor"] == comp].sort_values("n")
-            x = c["n"] * (1 + 0.02 * (i - len(comps) / 2))
+        for i, tk in enumerate(toolkits):
+            c = g[g["toolkit"] == tk].sort_values("n")
+            x = c["n"] * (1 + 0.02 * (i - len(toolkits) / 2))
             ax.errorbar(x, c["ratio"],
                         yerr=[c["ratio"] - c["ratio_ci_low"],
                               c["ratio_ci_high"] - c["ratio"]],
-                        fmt="o-", ms=3, lw=1, capsize=2, color=colours[comp],
-                        label=comp)
+                        fmt="o-", ms=3, lw=1, capsize=2, color=colours[tk],
+                        label=tk)
         ax.set_xscale("log")
         ax.set_xlabel("series length n")
-        ax.set_ylabel("MASE ratio aeon / competitor (geometric mean)")
+        ax.set_ylabel("MASE ratio aeon / toolkit (geometric mean)")
         ax.set_title(f"{family.upper()}: accuracy relative to aeon, 90% CI")
         ax.legend(fontsize=8, ncol=2)
         _save(fig, plots_dir, f"equivalence_{family}")
@@ -271,19 +271,19 @@ def plot_speedup(summary: pd.DataFrame, plots_dir: Path) -> None:
 
     for (family, process), g in summary.groupby(["family", "process"]):
         ref = g[g["toolkit"] == REFERENCE].set_index("n")["median_s"]
-        comps = [t for t in sorted(g["toolkit"].unique()) if t != REFERENCE]
-        colours = _colours(comps)
+        toolkits = [t for t in sorted(g["toolkit"].unique()) if t != REFERENCE]
+        colours = _colours(toolkits)
         fig, ax = plt.subplots(figsize=(7, 4.5))
         ax.axhline(1, color="0.5", lw=0.8)
-        for comp in comps:
-            c = g[g["toolkit"] == comp].set_index("n")["median_s"]
+        for tk in toolkits:
+            c = g[g["toolkit"] == tk].set_index("n")["median_s"]
             ratio = (c / ref).dropna()
-            ax.plot(ratio.index, ratio.values, "o-", ms=3, color=colours[comp],
-                    label=comp)
+            ax.plot(ratio.index, ratio.values, "o-", ms=3, color=colours[tk],
+                    label=tk)
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel("series length n")
-        ax.set_ylabel("competitor time / aeon time (>1: aeon faster)")
+        ax.set_ylabel("toolkit time / aeon time (>1: aeon faster)")
         ax.set_title(f"{family.upper()} {process}: speed up of aeon")
         ax.legend(fontsize=8)
         _save(fig, plots_dir, f"speedup_{family}_{process}")
@@ -309,7 +309,7 @@ def analyse_sweep(out: Path, margin: float = 0.05, alpha: float = 0.05) -> None:
         eq.to_csv(out / "equivalence.csv", index=False)
         plot_equivalence(eq, plots, margin)
         pooled = eq[eq["scope"] == "all"]
-        print(pooled.groupby(["family", "competitor"])["verdict"]
+        print(pooled.groupby(["family", "toolkit"])["verdict"]
               .value_counts().unstack(fill_value=0).to_string())
     tim_path = _find(out, "timing.csv")
     if tim_path.exists():

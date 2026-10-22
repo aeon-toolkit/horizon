@@ -7,16 +7,16 @@ Reads ``results/accuracy.csv``, ``results/forecasts.csv`` and
     Per family, process, length and toolkit: mean/median MASE, RMSE, mean time,
     failure count, and how often the true generating model was selected.
 ``results/significance.csv``
-    aeon against every competitor, per (family, length) pooled over processes
+    aeon against every other toolkit, per (family, length) pooled over processes
     and per process: paired two-sided Wilcoxon signed-rank test on per-series
     MASE, Holm corrected within each (family, length, scope) group, with
     win/tie/loss counts and the median paired difference.
 ``results/forecast_agreement.csv``
-    How close aeon's point forecasts are to each competitor's, relative to
+    How close aeon's point forecasts are to each other toolkit's, relative to
     aeon's own forecast error, and how often both select the same model.
 ``results/timing_summary.csv``
     Median and quartile run time per process, length and toolkit, and speed up
-    of aeon over each competitor.
+    of aeon over each other toolkit.
 ``plots/``
     Run time vs length (log-log), MASE boxplots per process, and critical
     difference diagrams per (family, length). Saved as PNG and PDF.
@@ -123,7 +123,7 @@ def _paired_matrix(df: pd.DataFrame, metric: str) -> pd.DataFrame:
 
 
 def significance(acc: pd.DataFrame, metric: str = "mase") -> pd.DataFrame:
-    """aeon vs each competitor, Wilcoxon signed-rank on paired ``metric``."""
+    """aeon vs each other toolkit, Wilcoxon signed-rank on paired ``metric``."""
     rows = []
     for (family, n), block in acc.groupby(["family", "n"]):
         scopes = [("all", block)] + [
@@ -149,11 +149,11 @@ def significance(acc: pd.DataFrame, metric: str = "mase") -> pd.DataFrame:
                         "n": n,
                         "scope": scope,
                         "reference": REFERENCE,
-                        "competitor": other,
+                        "toolkit": other,
                         "metric": metric,
                         "n_series": len(d),
                         "reference_median": float(np.median(a)),
-                        "competitor_median": float(np.median(b)),
+                        "toolkit_median": float(np.median(b)),
                         "median_diff": float(np.median(d)),
                         "reference_wins": int(np.sum(d < -TIES)),
                         "ties": int(np.sum(np.abs(d) <= TIES)),
@@ -171,13 +171,13 @@ def significance(acc: pd.DataFrame, metric: str = "mase") -> pd.DataFrame:
                     elif r["median_diff"] < 0:
                         r["verdict"] = f"{REFERENCE} better"
                     else:
-                        r["verdict"] = f"{r['competitor']} better"
+                        r["verdict"] = f"{r['toolkit']} better"
                 rows.extend(group)
     return pd.DataFrame(rows)
 
 
 def forecast_agreement(fc: pd.DataFrame, acc: pd.DataFrame) -> pd.DataFrame:
-    """How far each competitor's forecasts are from aeon's.
+    """How far each other toolkit's forecasts are from aeon's.
 
     ``rel_forecast_diff`` is mean |aeon - other| over the horizon divided by
     mean |y - aeon|: 0 means identical forecasts, values well below 1 mean the
@@ -212,7 +212,7 @@ def forecast_agreement(fc: pd.DataFrame, acc: pd.DataFrame) -> pd.DataFrame:
                     "family": family,
                     "process": process,
                     "n": n,
-                    "competitor": other,
+                    "toolkit": other,
                     "n_series": len(g),
                     "median_rel_forecast_diff": float(g["rel"].median()),
                     "mean_rel_forecast_diff": float(g["rel"].mean()),
@@ -354,14 +354,14 @@ def analyse_all(results_dir: Path = RESULTS_DIR, plots_dir: Path | None = None) 
         plot_cd(acc, plots_dir)
         pooled = sig[sig["scope"] == "all"]
         if not pooled.empty:
-            print("\naeon vs competitors, pooled over processes (MASE, Holm):")
+            print("\naeon vs other toolkits, pooled over processes (MASE, Holm):")
             cols = [
                 "family",
                 "n",
-                "competitor",
+                "toolkit",
                 "n_series",
                 "reference_median",
-                "competitor_median",
+                "toolkit_median",
                 "reference_wins",
                 "reference_losses",
                 "p_holm",

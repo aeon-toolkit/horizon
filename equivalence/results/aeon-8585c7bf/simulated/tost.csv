@@ -1,4 +1,4 @@
-family,n,scope,competitor,n_series,ratio,ratio_ci_low,ratio_ci_high,p_tost,p_difference,margin,verdict,mode
+family,n,scope,toolkit,n_series,ratio,ratio_ci_low,ratio_ci_high,p_tost,p_difference,margin,verdict,mode
 ets,100,all,aeon (auto sp),600,1.0,1.0,1.0,0.0,1.0,0.05,equivalent,auto
 ets,100,ets_aaa_m12,aeon (auto sp),100,1.0,1.0,1.0,0.0,1.0,0.05,equivalent,auto
 ets,100,ets_aan,aeon (auto sp),100,1.0,1.0,1.0,0.0,1.0,0.05,equivalent,auto

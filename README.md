@@ -20,7 +20,7 @@ from known processes. They ask two questions:
 ## Install
 
 ```bash
-pip install -e ".[competitors]"
+pip install -e ".[toolkits]"
 ```
 
 aeon is a plain dependency. To evaluate a development version of aeon, install

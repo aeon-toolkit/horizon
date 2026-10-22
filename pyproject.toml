@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # the toolkits aeon is compared against; any that are missing are skipped
-competitors = [
+toolkits = [
     "statsforecast",
     "sktime",
     "skforecast",

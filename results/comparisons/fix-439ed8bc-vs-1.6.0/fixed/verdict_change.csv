@@ -1,4 +1,4 @@
-family,n,scope,competitor,reference_median_a,competitor_median_a,p_holm_a,verdict_a,reference_median_b,competitor_median_b,p_holm_b,verdict_b
+family,n,scope,toolkit,reference_median_a,toolkit_median_a,p_holm_a,verdict_a,reference_median_b,toolkit_median_b,p_holm_b,verdict_b
 arima,100,all,pmdarima,1.2942897287924713,1.16724408702787,8.988023330574558e-06,pmdarima better,1.1670695143250895,1.16724408702787,1.0,no significant difference
 arima,100,all,skforecast,1.2942897287924713,1.1663868285046737,8.988023330574558e-06,skforecast better,1.1670695143250895,1.1663868285046737,1.0,no significant difference
 arima,100,all,sktime,1.2942897287924713,1.16724408702787,8.988023330574558e-06,sktime better,1.1670695143250895,1.16724408702787,1.0,no significant difference

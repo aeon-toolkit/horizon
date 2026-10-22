@@ -1,4 +1,4 @@
-family,n,scope,n_series,aeon_a_median_mase,aeon_b_median_mase,competitors_min_median_mase,competitors_max_median_mase,aeon_b_wins,aeon_b_losses,p_value,competitor_max_abs_change,aeon_a_median_time_s,aeon_b_median_time_s,p_holm,change
+family,n,scope,n_series,aeon_a_median_mase,aeon_b_median_mase,toolkits_min_median_mase,toolkits_max_median_mase,aeon_b_wins,aeon_b_losses,p_value,toolkits_max_abs_change,aeon_a_median_time_s,aeon_b_median_time_s,p_holm,change
 arima,100,all,600,1.209696897873695,1.2153378442281846,1.1900930286223987,1.2184548631087004,135,113,0.11829224020071832,0.0,0.01162397372536355,0.010450490051880451,0.8280456814050283,no significant change
 arima,100,arma_11,100,1.4783684654301097,1.4730050501157756,1.4404212268896037,1.4725127578494148,40,30,0.47196617282448083,0.0,0.020026899408549,0.02546209795400495,1.0,no significant change
 arima,100,ar_2,100,0.9281736855642075,0.924507474092242,0.9252513895070131,0.9560804675924193,11,17,0.21459143011523008,0.0,0.01073365169577295,0.01330565963871775,1.0,no significant change

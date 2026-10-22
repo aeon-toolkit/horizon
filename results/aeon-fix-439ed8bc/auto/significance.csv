@@ -1,4 +1,4 @@
-family,n,scope,reference,competitor,metric,n_series,reference_median,competitor_median,median_diff,reference_wins,ties,reference_losses,p_value,p_holm,significant_0.05,verdict
+family,n,scope,reference,toolkit,metric,n_series,reference_median,toolkit_median,median_diff,reference_wins,ties,reference_losses,p_value,p_holm,significant_0.05,verdict
 arima,100,all,aeon,pmdarima,mase,600,1.209696897873695,1.1999386943367076,0.0,287,44,269,0.470946470946111,1.0,False,no significant difference
 arima,100,all,aeon,skforecast,mase,600,1.209696897873695,1.2079860631173616,0.0,265,67,268,0.9250724813139842,1.0,False,no significant difference
 arima,100,all,aeon,sktime,mase,600,1.209696897873695,1.2051961346388615,0.0,286,45,269,0.415821952548571,1.0,False,no significant difference

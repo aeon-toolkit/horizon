@@ -8,13 +8,13 @@
 
 On simulated series from known ARIMA and ETS processes, aeon 1.6.0's AutoARIMA
 and AutoETS were significantly less accurate than statsforecast, sktime,
-skforecast, pmdarima and statsmodels: pooled over processes, every competitor
+skforecast, pmdarima and statsmodels: pooled over processes, every other toolkit
 was significantly better at both series lengths, with automatic model selection
 and when every toolkit was given the true model. The causes were bugs and
 weaknesses in model estimation, not in the model classes. With the changes on
-the branch `fix/forecasting-arima-ets-estimation`, no competitor is
+the branch `fix/forecasting-arima-ets-estimation`, no other toolkit is
 significantly better than aeon in any comparison, though aeon's AutoETS still
-selects the true model less often than the competitors and loses more accuracy
+selects the true model less often than the other toolkits and loses more accuracy
 than they do by selecting on short series. aeon remains faster than
 statsforecast, sktime, pmdarima and statsmodels on most processes and lengths,
 but each automatic fit costs about 2.5-3x more than in 1.6.0, skforecast's ARIMA
@@ -38,7 +38,7 @@ statsforecast's AutoETS is faster on short non-seasonal series.
 - **Modes.** `auto`: each toolkit selects the model. `fixed`: each toolkit fits
   the true model, so differences come only from parameter estimation.
 - **Accuracy.** MASE per series; paired two-sided Wilcoxon signed-rank tests of
-  aeon against each competitor, Holm corrected, pooled over processes and per
+  aeon against each other toolkit, Holm corrected, pooled over processes and per
   process.
 - **Run time.** Fit plus forecast, single threaded, JIT compilation excluded;
   ARMA(1,1) and ETS(A,A,A) m=12 for lengths 100 to 10,000, 5 repeats.
@@ -65,20 +65,20 @@ results/aeon-fix-439ed8bc/<mode>` (outputs in
 `results/comparisons/fix-439ed8bc-vs-1.6.0/<mode>/`) and `python -m horizon
 compare results/aeon-fix-439ed8bc/auto results/aeon-fix-439ed8bc/fixed
 --auto-fixed`. Both runs used the same seeds, so aeon 1.6.0, the branch and
-every competitor forecast identical series. All tables give median MASE over
-the 600 (pooled) or 100 (per process) series; "competitors" is the range of the
-competitors' medians; the p-value is a paired Wilcoxon test of 1.6.0 against
+every other toolkit forecast identical series. All tables give median MASE over
+the 600 (pooled) or 100 (per process) series; "other toolkits" is the range of their
+medians; the p-value is a paired Wilcoxon test of 1.6.0 against
 the branch, Holm corrected within each mode.
 
 ### Accuracy, pooled over processes
 
 The branch is significantly more accurate than 1.6.0 in all eight pooled
 comparisons (two families, two lengths, two modes), and its median now lies
-inside or below the competitors' range.
+inside or below the other toolkits' range.
 
 **auto** (each toolkit selects the model)
 
-| family | n | 1.6.0 | branch | competitors | p (Holm) | change |
+| family | n | 1.6.0 | branch | other toolkits | p (Holm) | change |
 | --- | --- | --- | --- | --- | --- | --- |
 | ARIMA | 100 | 1.347 | 1.210 | 1.190-1.218 | <0.001 | branch better |
 | ARIMA | 500 | 1.376 | 1.172 | 1.169-1.191 | <0.001 | branch better |
@@ -87,29 +87,29 @@ inside or below the competitors' range.
 
 **fixed** (each toolkit fits the true model)
 
-| family | n | 1.6.0 | branch | competitors | p (Holm) | change |
+| family | n | 1.6.0 | branch | other toolkits | p (Holm) | change |
 | --- | --- | --- | --- | --- | --- | --- |
 | ARIMA | 100 | 1.294 | 1.167 | 1.166-1.167 | <0.001 | branch better |
 | ARIMA | 500 | 1.342 | 1.193 | 1.189-1.191 | <0.001 | branch better |
 | ETS | 100 | 1.028 | 0.869 | 0.881-0.912 | <0.001 | branch better |
 | ETS | 500 | 0.917 | 0.822 | 0.813-0.853 | <0.001 | branch better |
 
-Verdicts of aeon against each competitor (paired Wilcoxon, Holm corrected,
+Verdicts of aeon against each other toolkit (paired Wilcoxon, Holm corrected,
 from each run's `significance.csv`; 1.6.0 verdicts from
 `results/aeon-1.6.0/<mode>/significance.csv`):
 
 | mode | comparisons | aeon 1.6.0 | branch 439ed8bc |
 | --- | --- | --- | --- |
-| auto | pooled, 18 vs competitors | 18 competitor better | 16 no difference, 2 aeon better |
-| auto | per process, 108 vs competitors | 60 competitor better, 48 no difference | 104 no difference, 4 aeon better |
-| fixed | pooled, 18 | 18 competitor better | 14 no difference, 4 aeon better |
-| fixed | per process, 108 | 30 competitor better, 78 no difference | 101 no difference, 7 aeon better |
+| auto | pooled, 18 vs other toolkits | 18 other toolkit better | 16 no difference, 2 aeon better |
+| auto | per process, 108 vs other toolkits | 60 other toolkit better, 48 no difference | 104 no difference, 4 aeon better |
+| fixed | pooled, 18 | 18 other toolkit better | 14 no difference, 4 aeon better |
+| fixed | per process, 108 | 30 other toolkit better, 78 no difference | 101 no difference, 7 aeon better |
 
 (auto also compares aeon with its own estimated-period ETS variant, `aeon (auto
 sp)`: no significant difference in 1.6.0 or on the branch, pooled or per
 process. Counting those, auto has 134 no difference and 6 aeon better.)
 
-On the branch no competitor is significantly better than aeon in any pooled or
+On the branch no other toolkit is significantly better than aeon in any pooled or
 per-process comparison in either mode. Where aeon is significantly better, it
 is mostly against statsforecast's ETS (pooled at both lengths in both modes,
 and per process on the m=12 seasonal processes); in fixed mode at length 100
@@ -123,12 +123,12 @@ No process got significantly worse. The improvements are concentrated where
 the 1.6.0 bugs bit: AR(2), MA(2) and white noise for ARIMA (the CSS-AIC and
 constant-start bugs), and the trended and seasonal ETS processes (the initial
 trend bug). A few medians rose without a significant change, most visibly ETS
-A,A,N at length 100 in auto mode (1.191 to 1.420; the competitors' range is
-1.360-1.447, so 1.6.0's median there was below every competitor's).
+A,A,N at length 100 in auto mode (1.191 to 1.420; the other toolkits' range is
+1.360-1.447, so 1.6.0's median there was below every other toolkit's).
 
 **auto**
 
-| family | n | process | 1.6.0 | branch | competitors | p (Holm) | change |
+| family | n | process | 1.6.0 | branch | other toolkits | p (Holm) | change |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | ARIMA | 100 | ARMA(1,1) | 1.693 | 1.478 | 1.440-1.473 | 0.110 | none |
 | ARIMA | 100 | AR(2) | 0.992 | 0.928 | 0.925-0.956 | <0.001 | branch better |
@@ -157,7 +157,7 @@ A,A,N at length 100 in auto mode (1.191 to 1.420; the competitors' range is
 
 **fixed**
 
-| family | n | process | 1.6.0 | branch | competitors | p (Holm) | change |
+| family | n | process | 1.6.0 | branch | other toolkits | p (Holm) | change |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | ARIMA | 100 | ARMA(1,1) | 1.588 | 1.430 | 1.444-1.444 | 0.260 | none |
 | ARIMA | 100 | AR(2) | 1.135 | 0.938 | 0.936-0.937 | <0.001 | branch better |
@@ -191,11 +191,11 @@ Boxplots: `results/aeon-fix-439ed8bc/<mode>/plots/mase_boxplot_<family>_n<n>.png
 Auto against fixed (the cost of model selection): at length 500 no toolkit,
 aeon included, is significantly more accurate given the true model. At length
 100, for ARIMA every toolkit is significantly more accurate in fixed mode, with
-similar gaps (aeon 1.210 vs 1.167, competitors 1.190-1.218 vs 1.166-1.167). For
+similar gaps (aeon 1.210 vs 1.167, other toolkits 1.190-1.218 vs 1.166-1.167). For
 ETS at length 100 aeon's gap is the largest (0.909 vs 0.869, Holm p <0.001);
-the competitors' gaps are 0.001-0.027 and none is significant after
+the other toolkits' gaps are 0.001-0.027 and none is significant after
 correction. So aeon's ETS selection costs more accuracy on short series than
-the competitors' does, consistent with its lower true-model rates below, even
+the other toolkits' selection does, consistent with its lower true-model rates below, even
 though its auto-mode accuracy is not significantly different from theirs.
 
 ### Model selection
@@ -203,7 +203,7 @@ though its auto-mode accuracy is not significantly different from theirs.
 Rate at which auto mode selects the true model, averaged over processes
 (`accuracy_summary.csv`, column `true_model_rate`):
 
-| family | n | aeon 1.6.0 | branch | competitors |
+| family | n | aeon 1.6.0 | branch | other toolkits |
 | --- | --- | --- | --- | --- |
 | ARIMA | 100 | 0.12 | 0.38 | 0.36-0.46 |
 | ARIMA | 500 | 0.15 | 0.51 | 0.49-0.61 |
@@ -212,10 +212,10 @@ Rate at which auto mode selects the true model, averaged over processes
 
 ARIMA: 1.6.0 rarely found the true orders (AR(2) 1%, ARMA(1,1) 3-10%, white
 noise 4-15%) because the AIC over n - max(p,q) observations favoured large
-orders. The branch is within or above the competitors' range on every process
+orders. The branch is within or above the other toolkits' range on every process
 and length except ARIMA(0,1,1) with drift at length 100 (0.35 against
 0.38-0.61) and ARIMA(1,1,0) at length 500 (0.44 against 0.50-0.69); accuracy
-on both is not significantly different from the competitors'.
+on both is not significantly different from the other toolkits'.
 
 ETS: the 1.6.0 rates are not comparable process by process. 1.6.0 always
 estimated phi but labelled the trend "A", so it scored 100% on A,A,N and 0% on
@@ -223,7 +223,7 @@ A,Ad,N whatever it fitted. The branch chooses between damped and undamped
 trends, and its misses on trended processes are mostly a damped trend chosen for
 an undamped one (at length 500, A,A,N: 85 A,A,N and 15 A,Ad,N; A,A,A m=12: 81
 A,A,A and 18 A,Ad,A). Even so, the branch's ETS selection is weaker than the
-competitors'. Its rate is below their range on A,N,N (0.21 and 0.43 against
+other toolkits'. Its rate is below their range on A,N,N (0.21 and 0.43 against
 0.41-0.45 and 0.49-0.65; the commonest wrong choice is A,Ad,N), A,A,N (0.51 and
 0.85 against 0.58-0.59 and 0.88-0.89), A,N,A m=4 at 100 (0.51 against
 0.56-0.69), M,A,M m=12 at 100 (0.55 against 0.60-0.83) and A,A,A m=12 at 500
@@ -249,7 +249,7 @@ The cost comes from the multi-start optimisation (three Nelder-Mead runs for
 ETS, Hannan-Rissanen start and restart for ARIMA) and, in auto mode, the larger
 ETS search (damped and undamped trends).
 
-Speed of the branch relative to each competitor (competitor time / aeon time,
+Speed of the branch relative to each other toolkit (toolkit time / aeon time,
 from `timing_summary.csv`; above 1 means aeon is faster):
 
 | mode | process | n | pmdarima | skforecast | sktime | statsforecast | statsmodels |
@@ -264,7 +264,7 @@ from `timing_summary.csv`; above 1 means aeon is faster):
 | fixed | ETS A,A,A m=12 | 100 | | 21.1 | 43.7 | 4.3 | 40.8 |
 | fixed | ETS A,A,A m=12 | 10,000 | | 38.6 | 10.9 | 6.8 | 10.9 |
 
-aeon is faster than every competitor on these processes with two exceptions:
+aeon is faster than every other toolkit on these processes with two exceptions:
 skforecast's auto-ARIMA is faster from about length 500 (7x at 10,000), and in
 fixed mode from about length 5,000; and statsforecast's AutoARIMA is level with
 aeon at length 10,000. The length sweep (`results/aeon-fix-439ed8bc/sweep-auto`,

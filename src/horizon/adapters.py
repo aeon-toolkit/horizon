@@ -13,7 +13,7 @@ model selection, parameter estimation and forecasting, i.e. it is the whole
 Fairness notes
 --------------
 * aeon's :class:`~aeon.forecasting.stats.AutoARIMA` is non-seasonal, so every
-  competitor is configured ``seasonal=False`` for the ARIMA comparison and the
+  other toolkit is configured ``seasonal=False`` for the ARIMA comparison and the
   ARIMA DGPs contain no seasonality.
 * All auto-ARIMA searches are given the same order limits (:data:`MAX_P`,
   :data:`MAX_D`, :data:`MAX_Q`), including aeon, rather than each toolkit's
@@ -23,7 +23,7 @@ Fairness notes
   entered as ``aeon (auto sp)``, which estimates the period from the data.
 * aeon 1.6.0's AutoETS always estimates a damped trend when there is a trend;
   from the ARIMA/ETS fix branch it searches damped and undamped trends.
-  Competitors keep their default candidate sets because that is what a user of
+  The other toolkits keep their default candidate sets because that is what a user of
   each toolkit gets.
 * sktime has no ARIMA or ETS implementation of its own: ``AutoARIMA`` and
   ``ARIMA`` wrap pmdarima (statsmodels SARIMAX underneath) and ``AutoETS``
@@ -61,7 +61,7 @@ MAX_Q = 2
 def _filter_kwargs(func: Callable, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Drop kwargs that ``func`` does not accept.
 
-    The competitor toolkits rename and remove constructor arguments between
+    The other toolkits rename and remove constructor arguments between
     releases. Filtering against the live signature means the benchmark keeps
     working rather than dying with a ``TypeError`` on a minor upgrade.
     """
@@ -511,7 +511,7 @@ def _statsmodels_ets(self, y, h, sp):
 #
 # aeon's ETS estimates the damping parameter phi whenever there is a trend, so
 # it cannot fit an undamped trend. For the undamped trend processes aeon fits a
-# damped trend while the competitors fit the exact model. This is a property of
+# damped trend while the other toolkits fit the exact model. This is a property of
 # aeon, recorded in ``selected_model`` as ``Ad``.
 
 

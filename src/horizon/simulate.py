@@ -8,7 +8,7 @@ Two families are provided:
 
 ``arima``
     Non-seasonal ARIMA(p, d, q) processes. aeon's :class:`AutoARIMA` is
-    non-seasonal, so for a fair fight all competitors are also configured
+    non-seasonal, so for a fair fight all other toolkits are also configured
     non-seasonal and the DGPs contain no seasonality.
 ``ets``
     State space exponential smoothing processes in the Hyndman taxonomy,
@@ -53,7 +53,7 @@ class Process:
         compared on this process.
     seasonal_period : int
         True seasonal period of the process, 1 if non-seasonal. Passed to the
-        competitor forecasters that require it, and used as the denominator lag
+        other toolkits' forecasters that require it, and used as the denominator lag
         for MASE.
     sampler : callable
         ``sampler(n, rng) -> np.ndarray`` of shape ``(n,)``.

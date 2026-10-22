@@ -1,4 +1,4 @@
-family,process,n,competitor,n_series,median_rel_forecast_diff,mean_rel_forecast_diff,same_model_rate
+family,process,n,toolkit,n_series,median_rel_forecast_diff,mean_rel_forecast_diff,same_model_rate
 ets,ets_aaa_m12,100,aeon (auto sp),100,0.0,0.0,1.0
 ets,ets_aaa_m12,500,aeon (auto sp),100,0.0,0.0,1.0
 ets,ets_aan,100,aeon (auto sp),100,0.0,0.0,1.0
