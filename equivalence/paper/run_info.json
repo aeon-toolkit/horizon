@@ -1,0 +1,14 @@
+{
+  "simulated": "equivalence/results/aeon-8585c7bf/simulated",
+  "significance": "results/aeon-8585c7bf",
+  "sweep": "results/aeon-8585c7bf/sweep-auto",
+  "m4": "equivalence/results/aeon-8585c7bf/m4",
+  "out": "equivalence/paper",
+  "sweep_aeon": {
+    "version": "1.6.0",
+    "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+    "git_commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+    "git_branch": "bench/arima-ets",
+    "git_dirty": false
+  }
+}

@@ -36,7 +36,7 @@ The difference tests are stricter, and on M4 they separate aeon from R on
 several frequencies, in both directions, with small effects (rank-biserial
 |r| <= 0.11, except hourly ARIMA, r = 0.39). Details below.
 
-**Run time:** aeon's AutoETS is faster than every other toolkit at every length.
+**Run time:** on seasonal ETS(A,A,A) data aeon's AutoETS is faster than every other toolkit at every length; on non-seasonal ETS(A,A,N) it is level with the others (statsforecast faster at 100, statsmodels and sktime slightly faster from about 3,000). Figures in `paper/`.
 aeon's AutoARIMA is the fastest on short series; skforecast's auto-ARIMA is
 faster from about 500 observations, and statsforecast's at 10,000. Automatic
 fits take 1.8-4.8x as long as in aeon 1.6.0, whose estimation was wrong (see
@@ -190,8 +190,15 @@ toolkit time / aeon time: above 1, aeon is faster.
 | fixed | ETS A,A,A m=12 | 100 | 0.001 | | 21.2 | 44.0 | 4.3 | 41.5 |
 | fixed | ETS A,A,A m=12 | 10,000 | 0.045 | | 37.5 | 10.8 | 6.9 | 10.7 |
 
-- **AutoETS** is faster than every other toolkit at every length: 3-7x faster
-  than statsforecast, 5-47x faster than the others.
+- **AutoETS** on seasonal data (ETS(A,A,A), m=12) is faster than every other
+  toolkit at every length: 3-7x faster than statsforecast, 5-47x faster than
+  the others. On non-seasonal ETS(A,A,N) (length sweep,
+  `results/aeon-8585c7bf/sweep-auto`) the margins are small: statsforecast is
+  faster at length 100 (0.004 s against 0.014 s; aeon's time at 100 is above
+  its time at 200 in both sweeps, so probably a measurement artefact), level at
+  200-300, and 1.2-1.7x slower than aeon from 500;
+  statsmodels and sktime are 2-4x slower up to 1,000 but 1.2-1.3x faster than
+  aeon from about 3,000; skforecast is 2-4x slower throughout.
 - **AutoARIMA** is faster than every other toolkit at 100-200 observations.
   skforecast is level at 500 and faster from 1,000 (3.6x at 1,000, 8x at
   10,000). statsforecast is level at 5,000 and 1.2x faster at 10,000. With the
