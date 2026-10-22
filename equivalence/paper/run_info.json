@@ -3,6 +3,8 @@
   "significance": "results/aeon-8585c7bf",
   "sweep": "results/aeon-8585c7bf/sweep-auto-r20",
   "m4": "equivalence/results/aeon-8585c7bf/m4",
+  "sim_other": "results/aeon-8585c7bf/sim-other",
+  "timing_other": "results/aeon-8585c7bf/timing-other",
   "out": "equivalence/paper",
   "sweep_aeon": {
     "version": "1.6.0",

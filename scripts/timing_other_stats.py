@@ -50,6 +50,8 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=20)
     parser.add_argument("--lengths", type=int, nargs="+", default=LENGTHS)
+    parser.add_argument("--all-processes", action="store_true",
+                        help="time on all 12 horizon processes, not just two ETS ones")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     path = args.out / "timing.csv"
@@ -66,7 +68,8 @@ def main() -> None:
             mc.fit_forecaster(backend, name, np.abs(y) + 1, 12, period)
 
     all_names = [p.name for p in get_processes()]
-    for proc in get_processes("ets", PROCESSES):
+    for proc in (get_processes() if args.all_processes
+                 else get_processes("ets", PROCESSES)):
         sp = proc.seasonal_period
         h = horizon_for(sp)
         pidx = all_names.index(proc.name)

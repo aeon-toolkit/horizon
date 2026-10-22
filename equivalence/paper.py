@@ -6,6 +6,9 @@
   the Holm-corrected Wilcoxon signed-rank test.
 - ``table_m4.{md,tex}``: aeon AutoETS and AutoARIMA against the published M4
   forecasts of R's ets and auto.arima, by frequency.
+- ``table_other_stats.{md,tex}``: aeon's Theta, DOTM and AutoCES against
+  statsforecast, smooth and M4's published Theta: simulated accuracy (pooled
+  over the 12 processes), M4 (all frequencies) and run time at length 100.
 - ``fig_timing_arima.{pdf,png}``: median fit-and-forecast time against series
   length for AutoARIMA on ARMA(1,1) and ARIMA(1,1,0), auto mode;
   ``fig_timing_ets.{pdf,png}`` the same for AutoETS on ETS(A,A,N) and
@@ -26,6 +29,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 # fixed toolkit order, colour and marker (identity never by colour alone)
@@ -106,7 +110,7 @@ def write_m4(m4_dir: Path, out: Path) -> None:
     owa = pd.read_csv(m4_dir / "owa.csv").pivot(
         index="frequency", columns="method", values="owa")
     tost = pd.read_csv(m4_dir / "tost.csv")
-    tost = tost[tost["metric"] == "mase"].set_index(["aeon", "frequency"])
+    tost = tost[tost["metric"] == "mase"].set_index(["aeon", "reference", "frequency"])
     pairs = [("AutoETS", "M4 ETS", "R ets"), ("AutoARIMA", "M4 ARIMA", "R auto.arima")]
     head = "| frequency | " + " | ".join(
         f"aeon {a} | {lab} | ratio (90% CI) | TOST" for a, _, lab in pairs) + " |"
@@ -114,8 +118,8 @@ def write_m4(m4_dir: Path, out: Path) -> None:
     tex = []
     for f in FREQS:
         cells = []
-        for a, ref, _ in pairs:
-            r = tost.loc[(a, f)]
+        for a, ref, lab in pairs:
+            r = tost.loc[(a, lab, f)]
             cells += [f"{owa.loc[f, a]:.3f}", f"{owa.loc[f, ref]:.3f}",
                       f"{r['ratio']:.3f} ({r['ratio_ci_low']:.3f}-{r['ratio_ci_high']:.3f})",
                       r["verdict"]]
@@ -129,6 +133,80 @@ def write_m4(m4_dir: Path, out: Path) -> None:
     (out / "table_m4.tex").write_text("\n".join(
         [f"% {note}", "\\begin{tabular}{l" + "cccc" * len(pairs) + "}", "\\toprule",
          *tex, "\\bottomrule", "\\end{tabular}", ""]))
+
+
+OTHER = [  # (aeon forecaster, simulated family, toolkit, M4 reference label)
+    ("Theta", "theta", "statsforecast", "statsforecast Theta"),
+    ("Theta", None, None, "M4 Theta"),
+    ("DOTM", "dotm", "statsforecast", "statsforecast DOTM"),
+    ("AutoCES", "autoces", "statsforecast", "statsforecast AutoCES"),
+    ("AutoCES", "autoces", "smooth", "smooth AutoCES"),
+]
+
+
+def write_other_stats(sim_dir: Path, timing_dir: Path, m4_dir: Path, out: Path) -> None:
+    """One table: simulated accuracy, M4 accuracy and run time per pair."""
+    sig = pd.read_csv(sim_dir / "significance.csv")
+    eq = pd.read_csv(sim_dir / "equivalence.csv")
+    m4 = pd.read_csv(m4_dir / "tost.csv")
+    m4 = m4[(m4["metric"] == "mase") & (m4["frequency"] == "all")]
+    m4_sr = pd.read_csv(m4_dir / "signed_rank.csv")
+    m4_sr = m4_sr[m4_sr["metric"] == "mase"]
+    tim = pd.read_csv(timing_dir / "timing.csv")
+    tim = tim[(tim["n"] == 100) & (tim["status"] == "ok")]
+    med = tim.groupby(["forecaster", "process", "backend"])["time_s"].median().unstack()
+
+    def sim_cell(family, toolkit, n):
+        e = eq[(eq.family == family) & (eq.n == n) & (eq.scope == "all") & (eq.toolkit == toolkit)]
+        g = sig[(sig.family == family) & (sig.n == n) & (sig.scope == "all") & (sig.toolkit == toolkit)]
+        if e.empty:
+            return "-"
+        r, v = e.iloc[0], g.iloc[0]["verdict"]
+        mark = "" if v == "no significant difference" else ("+" if v == "aeon better" else "-")
+        return f"{r['ratio']:.3f}{mark}"
+
+    rows = []
+    for aeon, family, toolkit, ref in OTHER:
+        t = m4[(m4.aeon == aeon) & (m4.reference == ref)]
+        n_sig = m4_sr[(m4_sr.aeon == aeon) & (m4_sr.reference == ref)]["verdict"]
+        speed = "-"
+        if toolkit is not None and toolkit in med.loc[aeon]:
+            x = med.loc[aeon]
+            speed = f"{float(np.exp(np.log(x[toolkit] / x['aeon']).mean())):.1f}"
+        rows.append([
+            aeon, ref,
+            sim_cell(family, toolkit, 100) if family else "-",
+            sim_cell(family, toolkit, 500) if family else "-",
+            f"{t.iloc[0]['ratio']:.3f}" if len(t) else "-",
+            t.iloc[0]["verdict"] if len(t) else "-",
+            f"{(n_sig == 'aeon better').sum()}/{(n_sig == 'reference better').sum()}",
+            speed,
+        ])
+    head = ["aeon", "reference", "sim. ratio n=100", "sim. ratio n=500",
+            "M4 ratio", "M4 TOST", "M4 freq. aeon/ref better", "speed-up n=100"]
+    note = ("Ratios are geometric means of per-series MASE ratios aeon / reference "
+            "(< 1: aeon more accurate). Simulated: 12 processes x 100 series, + or - "
+            "where a Wilcoxon signed-rank test (Holm) finds aeon or the reference "
+            "more accurate; every simulated ratio is equivalent within 5% (TOST). "
+            "M4: all 100,000 series; TOST verdict overall, and the number of the six "
+            "frequencies where the signed-rank test (Holm) favours aeon / the "
+            "reference. Speed-up: reference time / aeon time at length 100, "
+            "geometric mean of medians over the 12 processes (100 series each), "
+            "single-threaded.")
+    md = ["| " + " | ".join(head) + " |", "|---" * len(head) + "|"]
+    md += ["| " + " | ".join(r) + " |" for r in rows]
+    (out / "table_other_stats.md").write_text("\n".join(md + ["", note, ""]))
+    def tex_cell(c):
+        # a trailing +/- on a ratio marks a significant signed-rank test
+        if c[:1].isdigit() and c[-1:] in "+-":
+            return f"{c[:-1]}$^{c[-1]}$"
+        return c
+
+    tex = [" & ".join(tex_cell(c) for c in r) + " \\\\" for r in rows]
+    (out / "table_other_stats.tex").write_text("\n".join(
+        [f"% {note}", "\\begin{tabular}{llcccccc}", "\\toprule",
+         " & ".join(head) + " \\\\", "\\midrule", *tex, "\\bottomrule",
+         "\\end{tabular}", ""]))
 
 
 def timing_figure(summary: pd.DataFrame, panels, path: Path) -> None:
@@ -170,6 +248,10 @@ def main() -> None:
     parser.add_argument("--sweep", type=Path, required=True,
                         help="auto-mode sweep directory (timing_summary.csv)")
     parser.add_argument("--m4", type=Path, required=True, help="output of m4.py")
+    parser.add_argument("--sim-other", type=Path,
+                        help="output of scripts/sim_other_stats.py")
+    parser.add_argument("--timing-other", type=Path,
+                        help="output of scripts/timing_other_stats.py")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -177,6 +259,8 @@ def main() -> None:
     df = simulated_table(pd.read_csv(args.simulated / "tost.csv"), args.significance)
     write_simulated(df, args.out)
     write_m4(args.m4, args.out)
+    if args.sim_other and args.timing_other:
+        write_other_stats(args.sim_other, args.timing_other, args.m4, args.out)
     summary = pd.read_csv(args.sweep / "timing_summary.csv")
     timing_figure(summary, [("arima", "arma_11"), ("arima", "arima_110")],
                   args.out / "fig_timing_arima")

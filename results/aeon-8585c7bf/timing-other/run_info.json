@@ -1,0 +1,14 @@
+{
+  "command": "scripts/timing_other_stats.py --out results/aeon-8585c7bf/timing-other --repeats 100 --lengths 100 --all-processes",
+  "aeon": {
+    "version": "1.6.0",
+    "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+    "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+    "branch": "bench/arima-ets",
+    "dirty": false
+  },
+  "repeats": 100,
+  "lengths": [
+    100
+  ]
+}

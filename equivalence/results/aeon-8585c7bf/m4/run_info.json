@@ -3,6 +3,74 @@
   "margin": 0.05,
   "alpha": 0.05,
   "runs": {
+    "DOTM": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "aeon"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "DOTM"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "n_jobs": 60,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/aeon-8585c7bf",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      }
+    },
+    "SCUM": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "aeon"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "SCUM"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "n_jobs": 60,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/aeon-8585c7bf",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      }
+    },
     "AutoETS": {
       "script_args": {
         "backends": [
@@ -69,7 +137,7 @@
         "version": "1.6.0"
       }
     },
-    "SCUM": {
+    "AutoCES": {
       "script_args": {
         "arima_max_order": null,
         "backends": [
@@ -81,7 +149,7 @@
         ],
         "deseasonalise": false,
         "forecasters": [
-          "SCUM"
+          "AutoCES"
         ],
         "include_indices": [],
         "limit_per_type": 0,
@@ -101,6 +169,197 @@
         "dirty": false,
         "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
         "version": "1.6.0"
+      }
+    },
+    "Theta": {
+      "script_args": {
+        "backends": [
+          "aeon"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": true,
+        "forecasters": [
+          "Theta"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "n_jobs": 60,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/aeon-439ed8bc",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "fix/forecasting-arima-ets-estimation",
+        "commit": "439ed8bcdcae491156878544f74cc897f836db46",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench/aeon",
+        "version": "1.6.0"
+      }
+    },
+    "statsforecast Theta": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "statsforecast"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "Theta",
+          "DOTM",
+          "AutoCES"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "m4_period": {},
+        "n_jobs": 30,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/statsforecast-2.1.1",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      },
+      "package_version": {
+        "statsforecast": "2.1.1"
+      }
+    },
+    "statsforecast DOTM": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "statsforecast"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "Theta",
+          "DOTM",
+          "AutoCES"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "m4_period": {},
+        "n_jobs": 30,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/statsforecast-2.1.1",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      },
+      "package_version": {
+        "statsforecast": "2.1.1"
+      }
+    },
+    "statsforecast AutoCES": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "statsforecast"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "Theta",
+          "DOTM",
+          "AutoCES"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "m4_period": {},
+        "n_jobs": 30,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/statsforecast-2.1.1",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      },
+      "package_version": {
+        "statsforecast": "2.1.1"
+      }
+    },
+    "smooth AutoCES": {
+      "script_args": {
+        "arima_max_order": null,
+        "backends": [
+          "smooth"
+        ],
+        "data_home": "/home/ajb2u23/Code/horizon/data/fcompdata",
+        "datasets": [
+          "M4"
+        ],
+        "deseasonalise": false,
+        "forecasters": [
+          "AutoCES"
+        ],
+        "include_indices": [],
+        "limit_per_type": 0,
+        "m4_home": "/local/ajb2u23/Data/Forecasting/m4",
+        "m4_period": {},
+        "n_jobs": 30,
+        "no_train": false,
+        "output_dir": "/local/ajb2u23/Results/Forecasting/smooth-1.2.0",
+        "overwrite": false,
+        "progress_every": 10000,
+        "quiet": false,
+        "resume": true,
+        "types": []
+      },
+      "aeon": {
+        "branch": "bench/arima-ets",
+        "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+        "dirty": false,
+        "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+        "version": "1.6.0"
+      },
+      "package_version": {
+        "smooth": "1.2.0"
       }
     }
   }

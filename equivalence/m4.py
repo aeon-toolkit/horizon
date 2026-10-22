@@ -134,7 +134,7 @@ def compare(per_series: pd.DataFrame, margin: float, alpha: float):
         sr["p_holm"] = multipletests(sr["p_value"], method="holm")[1]
         sr["verdict"] = np.where(
             sr["p_holm"] >= alpha, "no difference",
-            np.where(sr["rank_biserial"] < 0, "aeon better", "R better"),
+            np.where(sr["rank_biserial"] < 0, "aeon better", "reference better"),
         )
         sr_rows.append(sr)
     return pd.concat(sr_rows, ignore_index=True), pd.DataFrame(tost_rows)

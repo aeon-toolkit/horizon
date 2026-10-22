@@ -333,6 +333,39 @@ information criterion: aeon selects by AIC from the CSS likelihood, while R's
 `auto.arima` uses AICc (`ic = "aicc"`), which penalises extra parameters much
 more on short series such as M4 yearly (median length about 30).
 
+## Theta, DOTM and AutoCES
+
+aeon's other statistical forecasters with an established counterpart, tested
+the same way on a smaller scale (`paper/table_other_stats.md`):
+
+| aeon | reference | simulated ratio n=100 | n=500 | M4 ratio | M4 TOST | M4 freq. aeon/ref better | speed-up n=100 |
+|---|---|---|---|---|---|---|---|
+| Theta | statsforecast Theta | 0.999+ | 0.998+ | 1.000 | equivalent | 4/1 | 1.9 |
+| Theta | M4 Theta (published) | - | - | 1.000 | equivalent | 3/1 | - |
+| DOTM | statsforecast DOTM | 1.002 | 1.001 | 0.990 | equivalent | 3/2 | 3.0 |
+| AutoCES | statsforecast AutoCES | 1.000 | 1.000 | 1.000 | equivalent | 0/0 | 1.2 |
+| AutoCES | smooth AutoCES | 1.001- | 1.004- | 1.000 | equivalent | 1/4 | 31.4 |
+
+- **Simulated** (`results/aeon-8585c7bf/sim-other`, `scripts/sim_other_stats.py`):
+  the 12 horizon processes, lengths 100 and 500, 100 series each; ratio of
+  MASE aeon / reference, + / - where the signed-rank test (Holm) favours aeon /
+  the reference. All 8 pooled comparisons are equivalent within 5%, and 94 of
+  96 per-process ones (2 inconclusive).
+- **M4**: all 100,000 series. Equivalent overall and on every frequency (TOST
+  ±5%), except AutoCES against smooth on hourly series: inconclusive, with
+  aeon 4% more accurate. aeon's Theta comes from the 439ed8bc run (its code is
+  unchanged at 8585c7bf); the reference runs are statsforecast 2.1.1 and
+  smooth 1.2.0 (`/local/.../statsforecast-2.1.1`, `.../smooth-1.2.0`), and
+  M4's official Theta forecasts.
+- **Run time** (`results/aeon-8585c7bf/timing-other`,
+  `scripts/timing_other_stats.py`): reference time / aeon time at length 100,
+  geometric mean over the 12 processes, 100 series each, single-threaded.
+  aeon's Theta is deseasonalised as on M4, and that cost is included.
+- aeon's AutoCES and statsforecast's give practically the same forecasts
+  (ratio 1.000 with a zero-width interval). smooth's AutoCES, the original
+  authors' implementation, is 0.1-0.4% more accurate on simulated series,
+  significantly so, and about 30x slower.
+
 ## Other aeon forecasters on M4
 
 Same commit, all with the M4 seasonal period. None has a published M4
