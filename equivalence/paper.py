@@ -9,6 +9,7 @@
 - ``table_other_stats.{md,tex}``: aeon's Theta, DOTM and AutoCES against
   statsforecast, smooth and M4's published Theta: simulated accuracy (pooled
   over the 12 processes), M4 (all frequencies) and run time at length 100.
+- ``table_other_timing.{md,tex}``: their run times at each timed length.
 - ``fig_timing_arima.{pdf,png}``: median fit-and-forecast time against series
   length for AutoARIMA on ARMA(1,1) and ARIMA(1,1,0), auto mode;
   ``fig_timing_ets.{pdf,png}`` the same for AutoETS on ETS(A,A,N) and
@@ -212,6 +213,49 @@ def write_other_stats(sim_dir: Path, timing_dir: Path, m4_dir: Path, out: Path) 
          "\\end{tabular}", ""]))
 
 
+def write_other_timing(timing_dir: Path, out: Path) -> None:
+    """Run time of Theta, DOTM and AutoCES against their references by length."""
+    tim = pd.read_csv(timing_dir / "timing.csv")
+    tim = tim[tim["status"] == "ok"]
+    lengths = sorted(tim["n"].unique())
+    med = tim.groupby(["forecaster", "n", "process", "backend"])["time_s"].median()
+
+    def gm(v):
+        return float(np.exp(np.log(v).mean()))
+
+    rows = []
+    for aeon, _, toolkit, ref in OTHER:
+        if toolkit is None:
+            continue
+        cells = [aeon, ref]
+        for n in lengths:
+            x = med.loc[(aeon, n)].unstack()
+            if toolkit not in x or x[toolkit].isna().all():
+                cells += ["-", "-", "-"]
+                continue
+            x = x[["aeon", toolkit]].dropna()
+            cells += [f"{1000 * gm(x['aeon']):.2f}", f"{1000 * gm(x[toolkit]):.2f}",
+                      f"{gm(x[toolkit] / x['aeon']):.1f}"]
+        rows.append(cells)
+    reps = tim.groupby("n")["repeat"].nunique().to_dict()
+    head = ["aeon", "reference"] + [f"{c} n={n}" for n in lengths
+                                    for c in ("aeon ms", "ref. ms", "speed-up")]
+    note = ("Milliseconds to fit and forecast one series, single-threaded: "
+            "geometric mean over the 12 horizon processes of the median over "
+            + ", ".join(f"{reps[n]} series at length {n}" for n in lengths)
+            + "; speed-up is reference time / aeon time.")
+    md = ["| " + " | ".join(head) + " |", "|---" * len(head) + "|"]
+    md += ["| " + " | ".join(r) + " |" for r in rows]
+    (out / "table_other_timing.md").write_text("\n".join(md + ["", note, ""]))
+    spec = "ll" + "ccc" * len(lengths)
+    top = " & & " + " & ".join(f"\\multicolumn{{3}}{{c}}{{$n={n}$}}" for n in lengths)
+    sub = "aeon & reference & " + " & ".join(["aeon ms & ref. ms & speed-up"] * len(lengths))
+    (out / "table_other_timing.tex").write_text("\n".join(
+        [f"% {note}", f"\\begin{{tabular}}{{{spec}}}", "\\toprule", top + " \\\\",
+         sub + " \\\\", "\\midrule", *[" & ".join(r) + " \\\\" for r in rows],
+         "\\bottomrule", "\\end{tabular}", ""]))
+
+
 def timing_figure(summary: pd.DataFrame, panels, path: Path) -> None:
     s = summary[~summary["toolkit"].str.startswith("aeon (")].copy()
     s["toolkit"] = s["toolkit"].map(_toolkit)
@@ -264,6 +308,7 @@ def main() -> None:
     write_m4(args.m4, args.out)
     if args.sim_other and args.timing_other:
         write_other_stats(args.sim_other, args.timing_other, args.m4, args.out)
+        write_other_timing(args.timing_other, args.out)
     summary = pd.read_csv(args.sweep / "timing_summary.csv")
     timing_figure(summary, [("arima", "arma_11"), ("arima", "arima_110")],
                   args.out / "fig_timing_arima")

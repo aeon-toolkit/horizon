@@ -367,6 +367,26 @@ the same way on a smaller scale (`paper/table_other_stats.md`):
   authors' implementation, is 0.1-0.4% more accurate on simulated series,
   significantly so, and about 30x slower.
 
+**Run time by length** (`paper/table_other_timing.md`; ms per series,
+single-threaded, geometric mean over the 12 processes of the median over 100
+series at length 100 and 20 at 1,000 and 10,000):
+
+| aeon vs | n = 100 | n = 1,000 | n = 10,000 |
+|---|---|---|---|
+| Theta vs statsforecast | 0.31 vs 0.59 (1.9x) | 0.63 vs 13.5 (21x) | 3.9 vs 1,867 (481x) |
+| DOTM vs statsforecast | 0.50 vs 1.49 (3.0x) | 4.9 vs 38 (7.8x) | 81 vs 5,598 (69x) |
+| AutoCES vs statsforecast | 0.63 vs 0.72 (1.2x) | 1.5 vs 3.4 (2.3x) | 12 vs 37 (3.0x) |
+| AutoCES vs smooth | 0.63 vs 19.8 (31x) | 1.5 vs 83 (57x) | 12 vs 801 (66x) |
+
+- statsforecast's Theta and DOTM grow roughly with the square of the length
+  (Theta: 9 ms, 111 ms, 1.2 s at 1,000, 3,000, 10,000). The time is all in its
+  compiled `_lib.theta.optimize`, and a single likelihood pass
+  (`pegels_resid`) takes 63 ms at length 10,000, so each evaluation appears to
+  be quadratic in the length (the C++ source was not inspected).
+- statsforecast's AutoCES fails on all 20 AR(2) series of length 10,000 ("no
+  model able to be fitted"); its 10,000 figure is over the other 11 processes.
+  aeon's AutoCES fits them.
+
 ## Other aeon forecasters on M4
 
 Same commit, all with the M4 seasonal period. None has a published M4
