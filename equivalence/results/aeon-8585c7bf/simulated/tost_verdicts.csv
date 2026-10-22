@@ -1,5 +1,5 @@
 mode,scope,aeon better,equivalent,inconclusive
-auto,per process,3,79,26
-auto,pooled,1,16,1
-fixed,per process,5,98,5
-fixed,pooled,1,14,3
+auto,per process,3,99,30
+auto,pooled,1,20,1
+fixed,per process,5,120,7
+fixed,pooled,1,18,3

@@ -25,6 +25,7 @@ toolkits = [
     "skforecast",
     "pmdarima",
     "statsmodels",
+    "smooth",
 ]
 dev = ["pytest"]
 

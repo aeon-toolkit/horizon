@@ -34,9 +34,21 @@ Fairness notes
   ``with_intercept=True``, whereas pmdarima's default ``"auto"`` searches the
   orders without an intercept and then again with one (about twice the fits).
   Both are run with their own defaults.
+* smooth (the Python port of Svetunkov's R package) uses its own defaults:
+  model selection by AICc and initial states by backcasting, where the other
+  toolkits optimise them. ``AutoMSARIMA`` gets the shared order limits.
 * statsmodels has no built-in automatic selection, so the grid search that a
   user would have to write themselves is included here and timed as part of
-  the method. Those entries are labelled ``(grid)``.
+  the method. Those entries are labelled ``(grid)``. They follow aeon and R
+  where they can: R's KPSS rule for d, a mean when d = 0 and an optional
+  drift when d = 1, R's rejection of near unit roots, and no additive-error
+  multiplicative-season ETS.
+* Information criteria are not all the same: aeon, sktime, skforecast (set
+  here to match aeon), pmdarima and the statsmodels grids use AIC;
+  statsforecast and smooth use AICc, their default.
+* Given a period above 1, aeon's AutoETS only considers seasonal models; the
+  other toolkits may still choose a non-seasonal one. On the seasonal
+  processes here none did.
 * Every adapter records the chosen model in ``selected_model`` using a shared
   format, ``ARIMA(p,d,q)`` or ``ETS(E,T,S)``, so selections can be compared.
 """
@@ -189,9 +201,12 @@ def _aeon_arima(self, y, h, sp):
 def _aeon_ets(self, y, h, sp):
     from aeon.forecasting.stats import AutoETS
 
-    # aeon treats seasonal_period=None as "estimate from the data"; an integer
-    # is a request for a seasonal model, which only makes sense when sp > 1.
-    f = AutoETS(seasonal_period=sp if sp > 1 else None)
+    # Give the true period, as every other toolkit gets. seasonal_period=None
+    # would make aeon estimate it, which on short non-seasonal series often
+    # finds a spurious period and fits seasonal candidates too (that is the
+    # separate "aeon (auto sp)" entry). With 1, only non-seasonal models are
+    # tried.
+    f = AutoETS(seasonal_period=sp)
     preds = f.iterative_forecast(y, prediction_horizon=h)
     self.selected_model = _aeon_ets_label(f)
     return preds
@@ -421,10 +436,14 @@ def _pmdarima_arima(self, y, h, sp):
 def _statsmodels_arima(self, y, h, sp):
     """Hyndman-Khandakar style selection over a full (p, d, q) grid by AIC.
 
-    statsmodels has no auto-ARIMA. ``d`` is chosen by repeated KPSS testing as
-    aeon does, then every ``(p, q)`` within the shared limits is fitted and the
-    lowest AIC wins. The whole search is timed, because that is what using
-    statsmodels for this task actually costs.
+    statsmodels has no auto-ARIMA. ``d`` is chosen by repeated KPSS tests at
+    5% with trunc(3 sqrt(n) / 13) lags, as aeon and R's ``ndiffs`` do. Then
+    every ``(p, q)`` within the shared limits is fitted, with a mean when
+    d = 0, with and without a drift when d = 1, and with neither when d = 2,
+    and the lowest AIC wins. As in R's ``auto.arima``, fits with an AR or MA
+    root within 1.01 of the unit circle are rejected: statsmodels sometimes
+    converges to such degenerate fits with a spuriously low AIC. The whole search is timed, because that is what
+    using statsmodels for this task actually costs.
     """
     import numpy as np
     from statsmodels.tsa.arima.model import ARIMA
@@ -434,7 +453,8 @@ def _statsmodels_arima(self, y, h, sp):
     work = y.copy()
     while d < MAX_D:
         try:
-            p_value = kpss(work, regression="c", nlags="auto")[1]
+            lags = int(3 * np.sqrt(len(work)) / 13)
+            p_value = kpss(work, regression="c", nlags=lags)[1]
         except Exception:
             break
         if p_value >= 0.05:  # fail to reject stationarity
@@ -443,15 +463,20 @@ def _statsmodels_arima(self, y, h, sp):
         d += 1
 
     best_aic, best_res, best_order = np.inf, None, None
-    trend = "c" if d == 0 else "n"
+    # statsmodels: trend "c" is a mean for d == 0; for d == 1 a drift is "t"
+    trends = {0: ["c"], 1: ["n", "t"]}.get(d, ["n"])
     for p in range(MAX_P + 1):
         for q in range(MAX_Q + 1):
-            try:
-                res = ARIMA(y, order=(p, d, q), trend=trend).fit()
-            except Exception:
-                continue
-            if np.isfinite(res.aic) and res.aic < best_aic:
-                best_aic, best_res, best_order = res.aic, res, (p, d, q)
+            for trend in trends:
+                try:
+                    res = ARIMA(y, order=(p, d, q), trend=trend).fit()
+                except Exception:
+                    continue
+                roots = np.concatenate([res.arroots, res.maroots])
+                if roots.size and np.min(np.abs(roots)) < 1.01:
+                    continue
+                if np.isfinite(res.aic) and res.aic < best_aic:
+                    best_aic, best_res, best_order = res.aic, res, (p, d, q)
     if best_res is None:
         self.selected_model = "failed"
         return np.full(h, float(np.mean(y)))
@@ -464,8 +489,10 @@ def _statsmodels_ets(self, y, h, sp):
 
     Mirrors the candidate set aeon's AutoETS searches: additive or
     multiplicative error, none or additive (optionally damped) trend, and none,
-    additive or multiplicative seasonality. Multiplicative components are only
-    tried on strictly positive data, as statsmodels requires.
+    additive or multiplicative seasonality, leaving out additive error with
+    multiplicative seasonality as aeon (``restrict=True``), R, statsforecast
+    and sktime do. Multiplicative components are only tried on strictly
+    positive data, as statsmodels requires.
     """
     import numpy as np
     from statsmodels.tsa.exponential_smoothing.ets import ETSModel
@@ -480,6 +507,8 @@ def _statsmodels_ets(self, y, h, sp):
     for error in errors:
         for trend, damped in [(None, False), ("add", False), ("add", True)]:
             for seasonal in seasonals:
+                if error == "add" and seasonal == "mul":
+                    continue
                 try:
                     model = ETSModel(
                         y,
@@ -509,10 +538,10 @@ def _statsmodels_ets(self, y, h, sp):
 # ARIMA ``spec["constant"]`` is a mean when d == 0 and a drift when d > 0, and
 # each toolkit is given whichever of its own flags expresses that.
 #
-# aeon's ETS estimates the damping parameter phi whenever there is a trend, so
-# it cannot fit an undamped trend. For the undamped trend processes aeon fits a
-# damped trend while the other toolkits fit the exact model. This is a property of
-# aeon, recorded in ``selected_model`` as ``Ad``.
+# aeon 1.6.0's ETS estimates the damping parameter phi whenever there is a
+# trend, so it cannot fit an undamped trend: for the undamped trend processes
+# it fits a damped trend, recorded in ``selected_model`` as ``Ad``. From the
+# estimation fixes, ETS takes ``damped_trend`` and fits the exact model.
 
 
 def _arima_label(spec):
@@ -696,6 +725,64 @@ def _statsmodels_ets_fixed(self, y, h, sp):
 
 
 # ---------------------------------------------------------------------------
+# smooth (Svetunkov's ADAM framework, Python port of the R package)
+# ---------------------------------------------------------------------------
+
+
+def _smooth_ets_label(model_type):
+    """smooth's model code, e.g. "AAdN", in the shared ``ETS(E,T,S)`` format."""
+    return f"ETS({model_type[0]},{model_type[1:-1]},{model_type[-1]})"
+
+
+def _smooth_arima_label(m):
+    o = m.orders
+    return f"ARIMA({o['ar'][0]},{o['i'][0]},{o['ma'][0]})"
+
+
+def _smooth_arima(self, y, h, sp):
+    from smooth import AutoMSARIMA
+
+    # selects the constant itself (each order with and without)
+    m = AutoMSARIMA(lags=[1], ar_order=MAX_P, i_order=MAX_D, ma_order=MAX_Q)
+    m.fit(y)
+    self.selected_model = _smooth_arima_label(m)
+    return np.asarray(m.predict(h=h).mean)
+
+
+def _smooth_ets(self, y, h, sp):
+    from smooth import ES
+
+    # default model pool "ZXZ": error and season selected, additive trends only
+    m = ES(lags=[sp] if sp > 1 else [1])
+    m.fit(y)
+    self.selected_model = _smooth_ets_label(m.model_type)
+    return np.asarray(m.predict(h=h).mean)
+
+
+def _smooth_arima_fixed(self, y, h, sp):
+    from smooth import MSARIMA
+
+    p, d, q = self.spec["order"]
+    m = MSARIMA(lags=[1], ar_order=p, i_order=d, ma_order=q,
+                constant=self.spec["constant"])
+    m.fit(y)
+    self.selected_model = _arima_label(self.spec)
+    return np.asarray(m.predict(h=h).mean)
+
+
+def _smooth_ets_fixed(self, y, h, sp):
+    from smooth import ES
+
+    model, damped = _ets_letters(self.spec)
+    if damped:
+        model = model[:2] + "d" + model[2:]
+    m = ES(model=model, lags=[sp] if self.spec["seasonal"] else [1])
+    m.fit(y)
+    self.selected_model = _smooth_ets_label(m.model_type)
+    return np.asarray(m.predict(h=h).mean)
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -750,6 +837,8 @@ _REGISTRY: list[Adapter] = [
         _statsmodels_ets,
         "statsmodels ETSModel + AIC grid search written here",
     ),
+    Adapter("smooth", "smooth", "arima", _smooth_arima, "smooth.AutoMSARIMA"),
+    Adapter("smooth", "smooth", "ets", _smooth_ets, "smooth.ES (model ZXZ)"),
 ]
 
 _FIXED = [
@@ -764,6 +853,8 @@ _FIXED = [
     ("ets", "sktime", "sktime", _sktime_ets_fixed, "AutoETS(auto=False)"),
     ("ets", "skforecast", "skforecast", _skforecast_ets_fixed, "Ets(model)"),
     ("ets", "statsmodels", "statsmodels", _statsmodels_ets_fixed, "ETSModel"),
+    ("arima", "smooth", "smooth", _smooth_arima_fixed, "MSARIMA(orders)"),
+    ("ets", "smooth", "smooth", _smooth_ets_fixed, "ES(model)"),
 ]
 _REGISTRY += [
     Adapter(name, pkg, fam, fn, f"fixed order: {notes}", mode="fixed")

@@ -29,10 +29,10 @@ import pandas as pd  # noqa: E402
 
 # fixed toolkit order, colour and marker (identity never by colour alone)
 TOOLKITS = ["aeon", "statsforecast", "sktime", "skforecast", "pmdarima",
-            "statsmodels"]
+            "statsmodels", "smooth"]
 COLOURS = dict(zip(TOOLKITS, ["#2a78d6", "#eb6834", "#1baf7a", "#eda100",
-                              "#e87ba4", "#008300"]))
-MARKERS = dict(zip(TOOLKITS, ["o", "s", "^", "D", "v", "P"]))
+                              "#e87ba4", "#008300", "#6250d6"]))
+MARKERS = dict(zip(TOOLKITS, ["o", "s", "^", "D", "v", "P", "X"]))
 LABELS = {"arima": "AutoARIMA", "ets": "AutoETS"}
 PROCESS_LABELS = {"arma_11": "ARMA(1,1)", "arima_110": "ARIMA(1,1,0)",
                   "ets_aaa_m12": "ETS(A,A,A), m=12", "ets_aan": "ETS(A,A,N)"}
@@ -154,9 +154,9 @@ def timing_figure(summary: pd.DataFrame, panels, path: Path) -> None:
         ax.spines[["top", "right"]].set_visible(False)
     axes[0].set_ylabel("fit and forecast time (s, median)")
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=len(TOOLKITS),
+    fig.legend(handles, labels, loc="lower center", ncol=4,
                frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.02))
-    fig.tight_layout(rect=(0, 0.07, 1, 1))
+    fig.tight_layout(rect=(0, 0.11, 1, 1))
     for ext in ["pdf", "png"]:
         fig.savefig(path.with_suffix(f".{ext}"), dpi=200, bbox_inches="tight")
     plt.close(fig)

@@ -11,8 +11,9 @@ commit **8585c7bf** (branch `bench/arima-ets`: `ajb/arima`, PR #3931, merged wit
    rank 6).
 2. **Simulated series, against other Python toolkits.** The horizon benchmark:
    series from known ARIMA and ETS processes, compared with statsforecast,
-   sktime, skforecast, pmdarima and statsmodels, with model selection (`auto`)
-   and with the true model given (`fixed`).
+   sktime, skforecast, pmdarima, statsmodels and smooth (Svetunkov's ADAM
+   package), with model selection (`auto`) and with the true model given
+   (`fixed`).
 
 Two kinds of test are used throughout, on paired per-series errors:
 
@@ -36,9 +37,12 @@ The difference tests are stricter, and on M4 they separate aeon from R on
 several frequencies, in both directions, with small effects (rank-biserial
 |r| <= 0.11, except hourly ARIMA, r = 0.39). Details below.
 
-**Run time:** on seasonal ETS(A,A,A) data aeon's AutoETS is faster than every other toolkit at every length; on non-seasonal ETS(A,A,N) it is level with the others (statsforecast faster at 100, statsmodels and sktime slightly faster from about 3,000). Figures in `paper/`.
-aeon's AutoARIMA is the fastest on short series; skforecast's auto-ARIMA is
-faster from about 500 observations, and statsforecast's at 10,000. Automatic
+**Run time:** on seasonal ETS(A,A,A) data aeon's AutoETS is faster than
+every other toolkit at every length. On non-seasonal ETS(A,A,N) it is level
+with statsforecast up to 500 and faster beyond, but statsmodels and sktime
+catch up at about 3,000 observations and are 1.2-1.4x faster from 5,000. aeon's AutoARIMA is
+the fastest on short series; skforecast's auto-ARIMA is faster from about 500
+observations, and statsforecast's at 10,000. Figures in `paper/`. Automatic
 fits take 1.8-4.8x as long as in aeon 1.6.0, whose estimation was wrong (see
 `reports/aeon-arima-ets-estimation.md`).
 
@@ -141,31 +145,55 @@ and 500; see the main README and `reports/aeon-arima-ets-estimation.md`.
 
 | mode | comparisons | other toolkit better | no difference | aeon better |
 |---|---|---|---|---|
-| auto | 18 pooled | 0 | 16 | 2 |
-| auto | 108 per process | 0 | 105 | 3 |
-| fixed | 18 pooled | 0 | 14 | 4 |
-| fixed | 108 per process | 0 | 101 | 7 |
+| auto | 22 pooled | 0 | 20 | 2 |
+| auto | 132 per process | 0 | 129 | 3 |
+| fixed | 22 pooled | 0 | 18 | 4 |
+| fixed | 132 per process | 0 | 127 | 5 |
 
-No other toolkit is significantly more accurate than aeon in any of the 252
+No other toolkit is significantly more accurate than aeon in any of the 308
 comparisons. Every "aeon better" verdict is for ETS: against statsforecast,
-and in fixed mode also against sktime and statsmodels, which share one engine.
+and in fixed mode at length 100 also against sktime and statsmodels (which
+share one engine) and smooth.
 
 **Equivalence** (TOST, ±5%, on per-series MASE ratios; `tost_verdicts.csv`)
 
 | mode | comparisons | equivalent | inconclusive | aeon better | aeon worse |
 |---|---|---|---|---|---|
-| auto | 18 pooled | 16 | 1 | 1 | 0 |
-| auto | 108 per process | 79 | 26 | 3 | 0 |
-| fixed | 18 pooled | 14 | 3 | 1 | 0 |
-| fixed | 108 per process | 98 | 5 | 5 | 0 |
+| auto | 22 pooled | 20 | 1 | 1 | 0 |
+| auto | 132 per process | 99 | 30 | 3 | 0 |
+| fixed | 22 pooled | 18 | 3 | 1 | 0 |
+| fixed | 132 per process | 120 | 7 | 5 | 0 |
 
 The four inconclusive pooled comparisons all lean towards aeon: its errors are
 lower, but the interval crosses the lower margin. These are ETS against
-statsforecast, sktime and statsmodels. Per process, 100 series is often too few
-to show equivalence within 5%. Of the 31 inconclusive per-process comparisons,
-15 lean towards aeon being worse, all at length 100. The largest is AutoARIMA
-against the statsmodels grid search on ARIMA(1,1,0), with a ratio of 1.084
-(1.019-1.153).
+statsforecast (both modes, length 500) and, in fixed mode at length 100,
+against sktime and statsmodels. Per process, 100 series is often too few to
+show equivalence within 5%. Of the 37 inconclusive per-process comparisons, 12
+lean towards aeon being worse, all at length 100. The largest is AutoETS
+against skforecast on ETS(M,A,M) m=12 in auto mode, ratio 1.048
+(1.004-1.094).
+
+**Adapter corrections (2026-10-22).** Three harness errors were found and
+fixed, and the affected rows rerun at 8585c7bf (provenance in each
+`run_info.json` under `refills`):
+
+- aeon's AutoETS was called with `seasonal_period=None` on non-seasonal
+  processes, so aeon estimated the period, often found a spurious one, and
+  fitted seasonal candidates as well (seasonal models chosen on 11-25% of
+  non-seasonal series at length 100, and fits 3-6x slower). It now gets
+  period 1, as every other toolkit does; estimating the period remains the
+  separate `aeon (auto sp)` entry.
+- The statsmodels ARIMA grid could not fit a drift, used statsmodels' KPSS
+  lag rule rather than R's, and now also rejects near unit roots as R does
+  (statsmodels sometimes converges to degenerate fits with a spuriously low
+  AIC).
+- The statsmodels ETS grid allowed additive-error, multiplicative-season
+  models, which aeon, R, statsforecast and sktime exclude.
+
+None of these changed a pooled verdict. aeon's AutoETS ratios at length 100
+fell slightly (against sktime from 0.986 to 0.981). The 1.6.0 and 439ed8bc
+runs used the old adapters and are left as they were; comparisons between them
+are unaffected, since both used the same adapters.
 
 Against 439ed8bc (`results/comparisons/8585c7bf-vs-439ed8bc/`), no pooled or
 per-process accuracy changed significantly in either mode.
@@ -177,28 +205,38 @@ compilation excluded, 5 repeats, on an otherwise idle machine
 (`equivalence/results/aeon-8585c7bf/simulated/timing.csv`). The toolkit columns give
 toolkit time / aeon time: above 1, aeon is faster.
 
-| mode | process | n | aeon (s) | pmdarima | skforecast | sktime | statsforecast | statsmodels |
-|---|---|---|---|---|---|---|---|---|
-| auto | ARMA(1,1) | 100 | 0.027 | 17.8 | 3.1 | 10.6 | 4.2 | 7.7 |
-| auto | ARMA(1,1) | 1,000 | 0.163 | 9.7 | 0.28 | 6.5 | 1.4 | 4.7 |
-| auto | ARMA(1,1) | 10,000 | 0.973 | 12.9 | 0.12 | 9.2 | 0.82 | 4.1 |
-| auto | ETS A,A,A m=12 | 100 | 0.016 | | 14.3 | 36.4 | 3.2 | 47.3 |
-| auto | ETS A,A,A m=12 | 1,000 | 0.107 | | 13.7 | 10.1 | 4.2 | 11.4 |
-| auto | ETS A,A,A m=12 | 10,000 | 1.058 | | 14.4 | 5.6 | 4.2 | 6.8 |
-| fixed | ARMA(1,1) | 100 | 0.001 | 48.5 | 4.2 | 52.5 | 10.1 | 11.3 |
-| fixed | ARMA(1,1) | 10,000 | 0.034 | 57.0 | 0.72 | 57.0 | 2.0 | 8.4 |
-| fixed | ETS A,A,A m=12 | 100 | 0.001 | | 21.2 | 44.0 | 4.3 | 41.5 |
-| fixed | ETS A,A,A m=12 | 10,000 | 0.045 | | 37.5 | 10.8 | 6.9 | 10.7 |
+| mode | process | n | aeon (s) | pmdarima | skforecast | sktime | smooth | statsforecast | statsmodels |
+|---|---|---|---|---|---|---|---|---|---|
+| auto | ARMA(1,1) | 100 | 0.027 | 17.8 | 3.1 | 10.6 | 2.7 | 4.2 | 8.0 |
+| auto | ARMA(1,1) | 1,000 | 0.163 | 9.7 | 0.28 | 6.5 | 2.0 | 1.4 | 4.7 |
+| auto | ARMA(1,1) | 10,000 | 0.973 | 12.9 | 0.12 | 9.2 | 9.5 | 0.82 | 4.1 |
+| auto | ETS A,A,A m=12 | 100 | 0.016 | | 14.3 | 36.4 | 5.1 | 3.2 | 37.5 |
+| auto | ETS A,A,A m=12 | 1,000 | 0.107 | | 13.7 | 10.1 | 3.0 | 4.2 | 10.1 |
+| auto | ETS A,A,A m=12 | 10,000 | 1.058 | | 14.4 | 5.6 | 6.4 | 4.2 | 5.6 |
+| fixed | ARMA(1,1) | 100 | 0.001 | 48.5 | 4.2 | 52.5 | 18.5 | 10.1 | 11.3 |
+| fixed | ARMA(1,1) | 10,000 | 0.034 | 57.0 | 0.72 | 57.0 | 29.2 | 2.0 | 8.4 |
+| fixed | ETS A,A,A m=12 | 100 | 0.001 | | 21.2 | 44.0 | 12.3 | 4.3 | 41.5 |
+| fixed | ETS A,A,A m=12 | 10,000 | 0.045 | | 37.5 | 10.8 | 23.1 | 6.9 | 10.7 |
+
+At length 100, timed on 100 series per process instead of 5
+(`results/aeon-8585c7bf-n100/`), aeon's AutoARIMA is 3-59x faster than every
+other toolkit on all six ARIMA processes, and its AutoETS 2-38x faster on the
+seasonal processes. On the three non-seasonal ETS processes aeon and
+statsforecast are level (3-4 ms; statsforecast 0.8-1.0x aeon's time) and the
+others are 3-10x slower.
 
 - **AutoETS** on seasonal data (ETS(A,A,A), m=12) is faster than every other
   toolkit at every length: 3-7x faster than statsforecast, 5-47x faster than
   the others. On non-seasonal ETS(A,A,N) (length sweep,
   `results/aeon-8585c7bf/sweep-auto`) the margins are small: statsforecast is
-  faster at length 100 (0.004 s against 0.014 s; aeon's time at 100 is above
-  its time at 200 in both sweeps, so probably a measurement artefact), level at
-  200-300, and 1.2-1.7x slower than aeon from 500;
-  statsmodels and sktime are 2-4x slower up to 1,000 but 1.2-1.3x faster than
-  aeon from about 3,000; skforecast is 2-4x slower throughout.
+  level with aeon up to 500 and 1.4-1.6x slower beyond; statsmodels and sktime
+  are 1.7-10x slower up to 1,000, level at 3,000 and 1.2-1.4x faster from
+  5,000; skforecast is 3-8x slower throughout. aeon's cost here is its
+  optimiser: about 2,000 Nelder-Mead evaluations per fit at length 100
+  (three starts per candidate, two thirds of the evaluations on the damped
+  models), against a gradient-based fit per candidate in statsmodels.
+- **smooth** is slower than aeon throughout: 2-10x for automatic ARIMA and
+  3-6x for automatic ETS, and 9-30x with the model given.
 - **AutoARIMA** is faster than every other toolkit at 100-200 observations.
   skforecast is level at 500 and faster from 1,000 (3.6x at 1,000, 8x at
   10,000). statsforecast is level at 5,000 and 1.2x faster at 10,000. With the
@@ -230,7 +268,8 @@ toolkit time / aeon time: above 1, aeon is faster.
 - **Simulated series come from the model classes being fitted.** They test
   estimation and selection; M4 tests real data.
 - **Run times** come from one machine (64 cores, one thread per fit). The
-  timing processes are ARMA(1,1) and ETS(A,A,A) m=12 only.
+  length-sweep processes are ARMA(1,1), ARIMA(1,1,0), ETS(A,A,N) and
+  ETS(A,A,A) m=12; the length-100 run covers all twelve.
 
 ## Rerunning
 
