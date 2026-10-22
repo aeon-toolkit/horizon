@@ -42,7 +42,8 @@ every other toolkit at every length. On non-seasonal ETS(A,A,N) it is level
 with statsforecast up to 500 and faster beyond, but statsmodels and sktime
 catch up at about 3,000 observations and are 1.2-1.4x faster from 5,000. aeon's AutoARIMA is
 the fastest on short series; skforecast's auto-ARIMA is faster from about 500
-observations, and statsforecast's at 10,000. Figures in `paper/`. Automatic
+observations, and statsforecast's at 10,000. Figures in `paper/` (median of 20 series per length,
+`results/aeon-8585c7bf/sweep-auto-r20`). Automatic
 fits take 1.8-4.8x as long as in aeon 1.6.0, whose estimation was wrong (see
 `reports/aeon-arima-ets-estimation.md`).
 

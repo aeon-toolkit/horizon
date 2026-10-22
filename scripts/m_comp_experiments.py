@@ -92,6 +92,8 @@ THREAD_ENV_VARS = (
     "MKL_NUM_THREADS",
     "OPENBLAS_NUM_THREADS",
     "NUMBA_NUM_THREADS",
+    "TF_NUM_INTRAOP_THREADS",
+    "TF_NUM_INTEROP_THREADS",
 )
 # Canonical forecasters whose fit/forecast paths are numba-compiled and therefore
 # pay a one-off JIT cost on first call. These are warmed up before timed work so
@@ -118,6 +120,14 @@ NUMBA_WARMUP_FORECASTERS = frozenset(
 NONSEASONAL_AEON_FORECASTERS = frozenset(
     {"ARIMA", "AutoARIMA", "Theta", "TAR", "AutoTAR", "TVP", "CES"}
 )
+# Machine learning and deep learning forecasters, also fitted to deseasonalised
+# series with --deseasonalise, as M4's own ML benchmarks (MLP, RNN) were.
+ML_DL_AEON_FORECASTERS = frozenset(
+    {"SETAR", "SETARTree", "SETARForest", "RegressionForecaster", "RidgeDiff",
+     "RandF", "DrCIF", "DrCIFDiff", "DrCIFDeltaY", "TCNForecaster", "NBeatsForecaster",
+     "DeepARForecaster"}
+)
+DESEASONALISED_AEON_FORECASTERS = NONSEASONAL_AEON_FORECASTERS | ML_DL_AEON_FORECASTERS
 DESEASONALISE_ENV_VAR = "M_COMP_DESEASONALISE"
 # "max_p,max_d,max_q" for aeon AutoARIMA (--arima-max-order); unset: aeon defaults
 ARIMA_MAX_ORDER_ENV_VAR = "M_COMP_ARIMA_MAX_ORDER"
@@ -162,6 +172,7 @@ FORECASTER_ALIASES = {
     "TVP": "TVP",
     "Theta": "Theta",
     "DrCIFDiff": "DrCIFDiff",
+    "DrCIFDeltaY": "DrCIFDeltaY",
 }
 
 
@@ -1094,6 +1105,64 @@ class FirstDifferenceRegressionForecaster:
         return forecasts
 
 
+class TargetDifferenceRegressionForecaster:
+    """Regress the next change on a window of levels and forecast levels.
+
+    Inputs are windows of ``window`` consecutive observations of the series;
+    the target is the change from the last observation in the window to the
+    next one, ``y[t + 1] - y[t]``. Forecasts add the predicted change to the
+    last value and recurse. Unlike :class:`FirstDifferenceRegressionForecaster`,
+    only the target is differenced, not the inputs.
+    """
+
+    def __init__(self, window: int, regressor):
+        self.window = window
+        self.regressor = regressor
+
+    def fit(self, y):
+        """Fit the regressor on level windows with next-step change targets."""
+        from sklearn.base import clone
+
+        y = _as_float_array(y)
+        X, target = self._training_data(y)
+        self.regressor_ = clone(self.regressor)
+        start = time.perf_counter()
+        self.regressor_.fit(X.reshape(X.shape[0], 1, -1), target)
+        self.fit_time_millis_ = int((time.perf_counter() - start) * 1000)
+        fitted_changes = _as_float_array(
+            self.regressor_.predict(X.reshape(X.shape[0], 1, -1))
+        )
+        last = y[self.window - 1 : -1]
+        self.fitted_values_ = last + fitted_changes
+        self.residuals_ = y[self.window :] - self.fitted_values_
+        self.forecast_ = self.iterative_forecast(y, 1)[0]
+        return self
+
+    def _training_data(self, y):
+        X = np.lib.stride_tricks.sliding_window_view(y, self.window)[:-1]
+        target = y[self.window :] - y[self.window - 1 : -1]
+        return X, target
+
+    def iterative_forecast(self, y, prediction_horizon: int) -> np.ndarray:
+        """Forecast levels by recursively predicting the next change."""
+        history = _as_float_array(y)
+        forecasts = np.empty(int(prediction_horizon), dtype=np.float64)
+        for i in range(int(prediction_horizon)):
+            x = history[-self.window :].reshape(1, 1, -1)
+            nxt = history[-1] + float(self.regressor_.predict(x)[0])
+            forecasts[i] = nxt
+            history = np.append(history, nxt)
+        return forecasts
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Return experiment metadata parameters."""
+        return {
+            "window": self.window,
+            "target": "change from last observation",
+            "regressor": self.regressor,
+        }
+
+
 def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
     """Construct an aeon forecaster with sensible defaults for this experiment."""
     window = _resolve_forecaster_window(y, h, period)
@@ -1132,6 +1201,14 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
 
         return RegressionForecaster(
             window=regression_window,
+            regressor=DrCIFRegressor(n_estimators=50, random_state=0, n_jobs=1),
+        )
+    if name == "DrCIFDeltaY":
+        from aeon.regression.interval_based import DrCIFRegressor
+
+        # window 100, capped so short series keep a few training windows
+        return TargetDifferenceRegressionForecaster(
+            window=max(2, min(100, int(y.size) - 3)),
             regressor=DrCIFRegressor(n_estimators=50, random_state=0, n_jobs=1),
         )
     if name == "DrCIFDiff":
@@ -1352,7 +1429,7 @@ def fit_forecaster(
     try:
         if canonical_backend == "aeon":
             if (
-                canonical_name in NONSEASONAL_AEON_FORECASTERS
+                canonical_name in DESEASONALISED_AEON_FORECASTERS
                 and os.environ.get(DESEASONALISE_ENV_VAR) == "1"
             ):
                 return _fit_deseasonalised(canonical_name, y, h, period)
@@ -1755,8 +1832,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Fit aeon forecasters without a seasonal component (ARIMA, "
-            "AutoARIMA, Theta, TAR, AutoTAR, TVP) to series deseasonalised as in "
-            "the M4 benchmarks: 90%% ACF seasonality test, then classical "
+            "AutoARIMA, Theta, TAR, AutoTAR, TVP, CES) and the machine and deep "
+            "learning forecasters to series deseasonalised as in the M4 "
+            "benchmarks: 90%% ACF seasonality test, then classical "
             "multiplicative decomposition."
         ),
     )

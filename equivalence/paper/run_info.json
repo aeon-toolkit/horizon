@@ -1,7 +1,7 @@
 {
   "simulated": "equivalence/results/aeon-8585c7bf/simulated",
   "significance": "results/aeon-8585c7bf",
-  "sweep": "results/aeon-8585c7bf/sweep-auto",
+  "sweep": "results/aeon-8585c7bf/sweep-auto-r20",
   "m4": "equivalence/results/aeon-8585c7bf/m4",
   "out": "equivalence/paper",
   "sweep_aeon": {

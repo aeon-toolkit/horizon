@@ -11,7 +11,7 @@
   ``fig_timing_more.{pdf,png}`` the same for ARIMA(1,1,0) and ETS(A,A,N).
 
     python equivalence/paper.py --simulated equivalence/results/aeon-8585c7bf/simulated \\
-        --significance results/aeon-8585c7bf --sweep results/aeon-8585c7bf/sweep-auto \\
+        --significance results/aeon-8585c7bf --sweep results/aeon-8585c7bf/sweep-auto-r20 \\
         --m4 equivalence/results/aeon-8585c7bf/m4 --out equivalence/paper
 """
 
@@ -142,8 +142,6 @@ def timing_figure(summary: pd.DataFrame, panels, path: Path) -> None:
             if c.empty:
                 continue
             lw, z = (2.0, 3) if tk == "aeon" else (1.2, 2)
-            ax.fill_between(c["n"], c["q25_s"], c["q75_s"], color=COLOURS[tk],
-                            alpha=0.12, lw=0, zorder=1)
             ax.plot(c["n"], c["median_s"], color=COLOURS[tk], lw=lw, zorder=z,
                     marker=MARKERS[tk], ms=4.5, mec="white", mew=0.6, label=tk)
         ax.set_xscale("log")
