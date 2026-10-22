@@ -1,0 +1,82 @@
+% Toolkits compared with aeon: engines, wrappers and defaults.
+% Standalone; to use in the paper, copy the section and table body.
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+
+\begin{document}
+
+\section*{Toolkits compared}
+
+We compare aeon with six other Python toolkits, which between them contain
+five distinct estimation engines (Table~\ref{tab:toolkits}). statsforecast and
+skforecast reimplement the algorithms of R's \texttt{forecast} package,
+statsforecast with a compiled C++ core and skforecast in numba. smooth is a
+Python port of the ADAM framework of R's \texttt{smooth} package, also with a
+C++ core. statsmodels provides state-space ARIMA and ETS models estimated by
+Kalman-filter maximum likelihood, but no automatic model selection, so we
+supply a grid search by AIC that mirrors aeon's candidate set. The remaining
+two toolkits are wrappers. pmdarima implements the stepwise search of R's
+\texttt{auto.arima} but fits every candidate with statsmodels'
+\texttt{SARIMAX}. sktime's \texttt{AutoARIMA} wraps pmdarima, and its
+\texttt{AutoETS} runs its own selection loop over statsmodels'
+\texttt{ETSModel}. Given the true model, sktime therefore produces the same
+forecasts as pmdarima for ARIMA and as statsmodels for ETS. aeon's
+implementations are written from scratch in numba: ARIMA is fitted by
+conditional sum of squares and ETS by maximum likelihood, both optimised by
+Nelder--Mead with multiple starts, with models selected by AIC.
+
+The toolkits differ in defaults as well as engines, and we kept each toolkit's
+defaults except where a common setting was needed for a fair comparison. Every
+toolkit was given the true seasonal period and the same auto-ARIMA order
+limits, and seasonal ARIMA was disabled throughout because aeon's ARIMA is
+non-seasonal. The remaining differences are part of what a user of each
+toolkit gets. statsforecast and smooth select models by AICc, the others by
+AIC. smooth initialises its states by backcasting, while the others optimise
+them. Following R, skforecast fits the candidates in its ARIMA search by
+conditional sum of squares when the series has more than 150 observations, and
+refits only the selected model by maximum likelihood. This is a likely reason
+why it overtakes aeon on long series while remaining equally accurate: aeon
+also searches with conditional sum of squares, but fits each candidate from
+several Nelder--Mead starts, with and without a constant, where skforecast
+runs a single gradient-based fit.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Automatic ARIMA and ETS in the toolkits compared, and the estimation
+engine each relies on. Versions: aeon 8585c7bf, statsforecast 2.1.1,
+skforecast 0.26.0, pmdarima 2.1.1, sktime 1.2.0, statsmodels 0.15.0,
+smooth 1.2.0.}
+\label{tab:toolkits}
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+Toolkit & Auto ARIMA & Auto ETS & Engine \\
+\midrule
+aeon & own & own &
+  numba; ARIMA by conditional sum of squares, ETS by likelihood, both with
+  multi-start Nelder--Mead; AIC \\
+statsforecast & own & own &
+  port of R \texttt{forecast} (\texttt{auto.arima}, \texttt{ets}) with a
+  compiled C++ core; AICc \\
+skforecast & own (\texttt{Arima}) & own (\texttt{Ets}) &
+  numba reimplementation following R \texttt{forecast}; CSS search for
+  series longer than 150 \\
+pmdarima & own search & -- &
+  \texttt{auto.arima}-style stepwise search; each fit is statsmodels
+  \texttt{SARIMAX} (Kalman filter) \\
+sktime & wraps pmdarima & own loop over statsmodels \texttt{ETSModel} &
+  statsmodels \\
+statsmodels & none (grid search supplied) & none (grid search supplied) &
+  Kalman-filter \texttt{ARIMA} and \texttt{ETSModel}, gradient-based maximum
+  likelihood \\
+smooth & \texttt{AutoMSARIMA} & \texttt{ES} &
+  port of R \texttt{smooth} (ADAM); C++ core, \texttt{nlopt} optimiser,
+  AICc, initial states by backcasting \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}
