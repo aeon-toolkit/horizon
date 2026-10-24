@@ -125,12 +125,18 @@ NONSEASONAL_AEON_FORECASTERS = frozenset(
 ML_DL_AEON_FORECASTERS = frozenset(
     {"SETAR", "SETARTree", "SETARForest", "RegressionForecaster", "RidgeDiff",
      "RandF", "DrCIF", "DrCIFDiff", "DrCIFDeltaY", "TCNForecaster", "NBeatsForecaster",
-     "DeepARForecaster"}
+     "DeepARForecaster", "TCNDiff", "DeepARDiff", "NBeatsDiff"}
+)
+TENSORFLOW_FORECASTERS = frozenset(
+    {"TCNForecaster", "NBeatsForecaster", "DeepARForecaster",
+     "TCNDiff", "DeepARDiff", "NBeatsDiff"}
 )
 DESEASONALISED_AEON_FORECASTERS = NONSEASONAL_AEON_FORECASTERS | ML_DL_AEON_FORECASTERS
 DESEASONALISE_ENV_VAR = "M_COMP_DESEASONALISE"
 # "max_p,max_d,max_q" for aeon AutoARIMA (--arima-max-order); unset: aeon defaults
 ARIMA_MAX_ORDER_ENV_VAR = "M_COMP_ARIMA_MAX_ORDER"
+# training history cap for the differenced deep learners (TCNDiff, DeepARDiff, NBeatsDiff)
+DL_MAX_TRAIN = 1000
 WARMUP_SERIES_LENGTH = 64
 WARMUP_PERIOD = 4
 WARMUP_HORIZON = 6
@@ -161,6 +167,7 @@ FORECASTER_ALIASES = {
     "DeepARForecaster": "DeepARForecaster",
     "NBeatsForecaster": "NBeatsForecaster",
     "NaiveForecaster": "NaiveForecaster",
+    "SeasonalNaive": "SeasonalNaive",
     "RandF": "RandF",
     "RegressionForecaster": "RegressionForecaster",
     "RidgeDiff": "RidgeDiff",
@@ -170,6 +177,9 @@ FORECASTER_ALIASES = {
     "SETARTree": "SETARTree",
     "TAR": "TAR",
     "TCNForecaster": "TCNForecaster",
+    "TCNDiff": "TCNDiff",
+    "DeepARDiff": "DeepARDiff",
+    "NBeatsDiff": "NBeatsDiff",
     "TVP": "TVP",
     "Theta": "Theta",
     "DrCIFDiff": "DrCIFDiff",
@@ -1195,6 +1205,74 @@ class TargetDifferenceRegressionForecaster:
         }
 
 
+class StandardisedForecaster:
+    """Fit an aeon forecaster to the standardised series and unscale its forecasts.
+
+    aeon's deep learners do not normalise their input, and on series in the
+    thousands they fail to train (DeepAR forecasts about zero). The series is
+    standardised by its training mean and standard deviation before fitting.
+    The model is fitted once: aeon's ``iterative_forecast`` refits, so
+    one-step models are forecast here by recursing ``predict`` on the fitted
+    model, and multi-step models (N-BEATS) by ``series_to_series_forecast``.
+    """
+
+    def __init__(self, model, difference: bool = False, max_train: int | None = None):
+        self.model = model
+        self.difference = difference
+        self.max_train = max_train
+
+    def _transform(self, y):
+        return np.diff(y) if self.difference else y
+
+    def fit(self, y):
+        """Standardise ``y`` (or its first differences) and fit the inner model."""
+        x = self._transform(_as_float_array(y))
+        if self.max_train:
+            x = x[-self.max_train :]
+        self.mean_ = float(np.mean(x))
+        sd = float(np.std(x))
+        self.scale_ = sd if sd > 0 else 1.0
+        self.model.fit((x - self.mean_) / self.scale_)
+        return self
+
+    def iterative_forecast(self, y, prediction_horizon: int) -> np.ndarray:
+        """Forecast on the standardised scale, then unscale (and undifference)."""
+        y = _as_float_array(y)
+        pred = self._forecast_z((self._transform(y) - self.mean_) / self.scale_,
+                                int(prediction_horizon)) * self.scale_ + self.mean_
+        self._release()
+        return y[-1] + np.cumsum(pred) if self.difference else pred
+
+    def _release(self):
+        """Free the TensorFlow graph: Keras keeps every model built in a process,
+        and long-lived workers grew to 7 GB each and were killed for memory."""
+        import gc
+
+        import tensorflow as tf
+
+        for attr in ("model_", "training_model_"):
+            if hasattr(self.model, attr):
+                setattr(self.model, attr, None)
+        tf.keras.backend.clear_session()
+        gc.collect()
+
+    def _forecast_z(self, z, h):
+        if getattr(self.model, "horizon", 1) != 1:
+            pred = _as_float_array(self.model.series_to_series_forecast(z, h))
+        else:
+            pred = np.empty(h, dtype=np.float64)
+            for i in range(h):
+                pred[i] = float(np.ravel(self.model.predict(z))[0])
+                z = np.append(z, pred[i])
+        return pred
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Return experiment metadata parameters."""
+        return {"scaling": "standardise by training mean and sd",
+                "difference": self.difference, "max_train": self.max_train,
+                **self.model.get_params(deep=False)}
+
+
 def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
     """Construct an aeon forecaster with sensible defaults for this experiment."""
     window = _resolve_forecaster_window(y, h, period)
@@ -1205,6 +1283,10 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
         from aeon.forecasting import NaiveForecaster
 
         return NaiveForecaster(seasonal_period=season_length)
+    if name == "SeasonalNaive":
+        from aeon.forecasting import NaiveForecaster
+
+        return NaiveForecaster(strategy="seasonal_last", seasonal_period=season_length)
     if name == "RegressionForecaster":
         from aeon.forecasting import RegressionForecaster
 
@@ -1310,20 +1392,29 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
         from aeon.forecasting.machine_learning import SETARForest
 
         return SETARForest()
+    if name in {"TCNDiff", "DeepARDiff", "NBeatsDiff"}:
+        # as the plain deep learners, but on standardised first differences of
+        # at most the last DL_MAX_TRAIN observations (full histories of the long
+        # daily and hourly series made a full M4 run take weeks)
+        base = {"TCNDiff": "TCNForecaster", "DeepARDiff": "DeepARForecaster",
+                "NBeatsDiff": "NBeatsForecaster"}[name]
+        recent = y[-(DL_MAX_TRAIN + 1) :]
+        model = _build_aeon_forecaster(base, recent[1:], h, period).model
+        return StandardisedForecaster(model, difference=True, max_train=DL_MAX_TRAIN)
     if name == "TCNForecaster":
         from aeon.forecasting.deep_learning import TCNForecaster
 
         # one-step model, forecast recursively (TCN predicts a single step)
-        return TCNForecaster(window=window)
+        return StandardisedForecaster(TCNForecaster(window=window))
     if name == "DeepARForecaster":
         from aeon.forecasting.deep_learning import DeepARForecaster
 
         # one-step model, forecast recursively with iterative_forecast
-        return DeepARForecaster(window=window)
+        return StandardisedForecaster(DeepARForecaster(window=window))
     if name == "NBeatsForecaster":
         from aeon.forecasting.deep_learning import NBeatsForecaster
 
-        return NBeatsForecaster(window=regression_window, horizon=h)
+        return StandardisedForecaster(NBeatsForecaster(window=regression_window, horizon=h))
     raise ValueError(f"Unknown aeon forecaster {name!r}.")
 
 
@@ -1401,13 +1492,15 @@ def _m4_seasonality_test(y: np.ndarray, period: int) -> bool:
 
 
 def _m4_seasonal_indices(
-    y: np.ndarray, period: int, h: int
+    y: np.ndarray, period: int, h: int, additive: bool = False
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return multiplicative seasonal indices for ``y`` and the next ``h`` points.
 
     Classical multiplicative decomposition as R's ``decompose``: centred moving
     average trend, mean detrended ratio per season position, normalised to mean
     one. Forecast indices repeat the last season, as in the M4 benchmarks.
+    With ``additive`` (R's ``type="additive"``), detrended differences
+    normalised to mean zero, for series that are not strictly positive.
     """
     n, m = y.size, int(period)
     if m % 2 == 0:
@@ -1417,10 +1510,13 @@ def _m4_seasonal_indices(
     half = weights.size // 2
     trend = np.full(n, np.nan)
     trend[half : n - half] = np.convolve(y, weights, mode="valid")
-    ratio = y / trend
+    ratio = y - trend if additive else y / trend
     position = np.arange(n) % m
     figure = np.array([np.nanmean(ratio[position == i]) for i in range(m)])
-    figure /= figure.mean()
+    if additive:
+        figure -= figure.mean()
+    else:
+        figure /= figure.mean()
     return figure[position], figure[np.arange(n, n + h) % m]
 
 
@@ -1429,26 +1525,31 @@ def _fit_deseasonalised(name: str, y: np.ndarray, h: int, period: int) -> FitRes
 
     Seasonal series (by ``_m4_seasonality_test``) are divided by their seasonal
     indices before fitting; forecasts and fitted values are multiplied back.
+    Series that are not strictly positive (zeros in the aaltd solar, traffic and
+    pedestrian series) are decomposed additively instead: indices subtracted,
+    then added back. All M4 series are positive, so M4 runs are unaffected.
     """
     start = time.perf_counter()
     if not _m4_seasonality_test(y, period):
         result = _fit_aeon(name, y, h, period)
         result.params = {**result.params, "deseasonalised": False}
         return result
-    seasonal_in, seasonal_out = _m4_seasonal_indices(y, period, h)
+    additive = bool(np.min(y) <= 0)
+    seasonal_in, seasonal_out = _m4_seasonal_indices(y, period, h, additive)
+    remove, restore = (np.subtract, np.add) if additive else (np.divide, np.multiply)
     overhead = time.perf_counter() - start
-    result = _fit_aeon(name, y / seasonal_in, h, period)
+    result = _fit_aeon(name, remove(y, seasonal_in), h, period)
     if result.forecast is not None:
-        result.forecast = result.forecast * seasonal_out[: result.forecast.size]
+        result.forecast = restore(result.forecast, seasonal_out[: result.forecast.size])
     if result.fitted_values is not None and result.fitted_values.size <= y.size:
         k = result.fitted_values.size
-        result.fitted_values = result.fitted_values * seasonal_in[y.size - k :]
+        result.fitted_values = restore(result.fitted_values, seasonal_in[y.size - k :])
         result.residuals = y[y.size - k :] - result.fitted_values
     result.train_seconds += overhead
     result.elapsed_seconds += overhead
     result.params = {
         **result.params,
-        "deseasonalised": True,
+        "deseasonalised": "additive" if additive else True,
         "seasonal_indices": seasonal_out[: int(period)].tolist(),
     }
     return result
@@ -2014,11 +2115,15 @@ def _run_pending_jobs(
     ]
     completed = 0
     # spawn: workers start clean rather than inheriting numba/BLAS state
+    # TensorFlow workers leak ~75 MB per fit even after clear_session, so they
+    # are replaced after each chunk of SERIES_BATCH_SIZE series
+    tf_model = FORECASTER_ALIASES.get(forecaster, forecaster) in TENSORFLOW_FORECASTERS
     with ProcessPoolExecutor(
         max_workers=n_jobs,
         mp_context=mp.get_context("spawn"),
         initializer=_init_worker,
         initargs=([(backend, forecaster)],),
+        max_tasks_per_child=1 if tf_model else None,
     ) as executor:
         futures = [
             executor.submit(_fit_chunk, chunk, backend, forecaster, max_h)
