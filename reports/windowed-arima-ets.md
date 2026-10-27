@@ -114,6 +114,26 @@ Consequences for the algorithm: a minimum window (here 300; in general enough fo
 the seasonal test and for seasonal models, e.g. several periods), and the
 deseasonalisation decision taken on the whole series.
 
+### 3.2a Mean or median over windows
+
+The averages above are means. The median of the window forecasts (each step,
+for M4) is as good or better, and robust to bad windows:
+
+| | LSSH-99 rel. MAE: whole / mean / median | M4 OWA, windows >= 300: whole / mean / median | M4 OWA, all windows: mean / median |
+|---|---|---|---|
+| AutoARIMA | 0.918 / 0.834 / **0.813** | 0.920 / 0.897 / 0.899 | 0.975 / **0.905** |
+| AutoETS | 0.927 / 0.818 / **0.804** | 0.945 / 0.935 / **0.930** | 1.027 / **0.926** |
+| ARIMA | 0.932 / 0.881 / **0.846** | 1.056 / 1.035 / 1.035 | 1.196 / 1.064 |
+| ETS (SES) | 1.023 / 1.014 / 1.010 | 1.337 / 1.336 / 1.337 | 1.336 / 1.336 |
+
+- On LSSH-99 the median beats the mean for every forecaster, and for AutoETS
+  (0.804) it beats rolling selection (0.808); 73 of 98 series improve on the whole
+  series (Holm p < 0.001). For ARMA(1,1) it becomes significant (Holm p = 0.028).
+- On M4 with all windows the mean is ruined by the short windows on hourly
+  series (AutoETS 1.027) while the median is not (0.926, better than the mean
+  with the windows restricted to >= 300). The median does not need the minimum
+  window to be chosen well.
+
 ### 3.3 Simulated controls (to do)
 
 To show when windowing helps and when it costs:

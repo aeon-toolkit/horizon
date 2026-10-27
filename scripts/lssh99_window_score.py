@@ -13,7 +13,8 @@ origin; per series, its test MAE is divided by the naive (last value) MAE.
 - ``global``: one window for every series, the one with the lowest geometric
   mean relative MAE over the validation origins.
 - ``average``: the mean of the forecasts from every window fitted (those
-  shorter than the history, and the whole series), no selection.
+  shorter than the history, and the whole series), no selection;
+- ``median``: as ``average``, with the median of the forecasts.
 - ``oracle``: per series, the window with the lowest test MAE (not a real
   method: an upper bound on what selecting one window per series can gain).
 
@@ -121,6 +122,8 @@ def score(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     # average over the windows fitted (each distinct window counted once)
     avg = raw.mean(axis=1).sub(truth.actual).abs()
     methods["average"] = avg[test].groupby("problem").mean()
+    med = raw.median(axis=1).sub(truth.actual).abs()
+    methods["median"] = med[test].groupby("problem").mean()
     methods["oracle"] = test_mae.min(axis=1)
 
     rel = pd.DataFrame(methods).div(naive_test.where(naive_test > 0), axis=0)

@@ -11,6 +11,7 @@ frequency, by training-length band, and overall. Methods:
 - ``global``: one window per frequency, the one with the lowest mean holdout
   sMAPE + MASE over that frequency's series;
 - ``average``: the mean forecast over the windows fitted (each counted once);
+- ``median``: as ``average``, with the median at each step;
 - ``oracle``: per series, the window with the lowest test MAE (an upper bound,
   not a method).
 
@@ -90,6 +91,7 @@ def score(rows: pd.DataFrame, truth: dict) -> pd.DataFrame:
         cand = [w for w in order if w in vmae and w in test.index]
         methods["validation"] = test[min(cand, key=lambda w: vmae[w])] if cand else test[0]
         methods["average"] = np.mean(np.stack(list(test.values)), axis=0)
+        methods["median"] = np.median(np.stack(list(test.values)), axis=0)
         methods["oracle"] = test[min(order, key=lambda w: mae[w])]
         for name, pred in methods.items():
             s, q = smape_mase(pred, t["test"], t["scale"])
@@ -175,7 +177,7 @@ def main() -> None:
         t = t.rename_axis("method").reset_index()
         tables.append(t)
         order = (["full"] + sorted([m for m in t.method if m.startswith("w=")], key=lambda m: int(m[2:]))
-                 + ["validation", "global", "average", "oracle", "Naive2"])
+                 + ["validation", "global", "average", "median", "oracle", "Naive2"])
         with pd.option_context("display.float_format", "{:.3f}".format, "display.width", 200):
             print(f"\n== {f}  (series: {per[per.method == 'full'].groupby('frequency').size().to_dict()})")
             print(t.set_index("method").drop(columns="forecaster").reindex(order).to_string())
