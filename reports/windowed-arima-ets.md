@@ -107,8 +107,8 @@ series; all four differences are significant (Wilcoxon, p <= 0.001).
   gains here; on LSSH-99 averaging was more reliable than a per-series validation
   choice. The oracle shows large headroom, but with one multi-step test period per
   series it is very optimistic.
-- Smaller than on LSSH-99 (12-13%): the M4 subset is shorter (median length
-  about 2,000 against up to 10,000), multi-step, and dominated by daily series.
+- Smaller than on LSSH-99 (12-13%): the M4 subset is shorter (median training
+  length 1,430, quartiles 700 and 4,196, against 1,008-10,000 on LSSH-99), multi-step, and dominated by daily series.
 
 Consequences for the algorithm: a minimum window (here 300; in general enough for
 the seasonal test and for seasonal models, e.g. several periods), and the
