@@ -2,7 +2,8 @@
 
 Section 5 (Benchmarking and evaluation) of the aeon forecasting paper. Every
 number in it comes from aeon commit `8585c7bf` (branch `bench/arima-ets`, a
-clean worktree; no aeon code changed). The results are fixed: runs started
+clean worktree; no aeon code changed). The paper calls this aeon 1.7: the
+forecasting code at 8585c7bf ships unchanged in that release. The results are fixed: runs started
 after 2026-10-27 are not part of the paper.
 
 League tables, every forecaster run:
