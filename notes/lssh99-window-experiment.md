@@ -112,6 +112,21 @@ not run); an earlier scoring that filled them with the whole series gave
   surprising and comes from 5 series of one dataset: inspect before relying on it.
 - Selection uses 30 one-step errors; the per-series validation choice is noisy.
 
+## Overnight task (user, 2026-10-27 ~19:50): assess all combination options
+
+When `scratch/run_window_fitstats.sh` finishes (log `scratch/run_window_fitstats.log`,
+LSSH-99 then M4, with in-sample fit scores):
+1. `python scripts/window_store.py build --lssh99 $RESULTS/lssh99-window-fitstats-8585c7bf
+   --m4 $RESULTS/m4-window-fitstats-8585c7bf --out $RESULTS/window-store-8585c7bf`
+2. Check: the store's `mean` / `median` reproduce `average` / `median` of the earlier
+   scorers (forecasts must be identical to the first runs).
+3. `python scripts/window_store.py evaluate --store ... --out results/aeon-8585c7bf/window-combine`:
+   mean, median, trimmed, inv_mse, inv_rel_mae, inv_rel_mae2, akaike_n100,
+   best_insample, inv_oos_mse, median_best_half; plus variants with a minimum
+   window (>= 300) and medians of subsets.
+4. Write the assessment into `reports/windowed-arima-ets.md` (new section on
+   combination schemes), commit locally, do not push.
+
 ## Plan and ideas (user thinking aloud, 2026-10-27; none started)
 
 Order: get the window results first (above). If no window beats the whole series,
