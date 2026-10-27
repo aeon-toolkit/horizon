@@ -1,0 +1,12 @@
+% Text to accompany table_theta_dotm_ces.tex (label tab:other_stats).
+% Numbers from table_other_stats.md and table_other_timing.md (aeon 8585c7bf).
+
+aeon's \texttt{Theta}, \texttt{DOTM} and \texttt{AutoCES} are equivalent in
+accuracy to the statsforecast implementations, and \texttt{AutoCES} also to
+smooth's, on both simulated series and the full M4: every geometric mean MASE
+ratio is within 1\% of one and equivalent by TOST with a 5\% margin
+(Table~\ref{tab:other_stats}). They are also faster at every length tested:
+at length 100 by factors of 1.9, 3.0 and 1.2 against statsforecast (31
+against smooth), rising to 481, 69 and 3.0 (66) at length 10{,}000, where
+statsforecast's \texttt{Theta} and \texttt{DOTM} take 1.9\,s and 5.6\,s per
+series against 4\,ms and 81\,ms for aeon.
