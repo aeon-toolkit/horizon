@@ -1,0 +1,502 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage[round,authoryear]{natbib}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+\title{Forget the distant past: training windows and window combination\\
+for automatic ARIMA and exponential smoothing on long time series}
+\author{Draft (2026-10-27) \todo{authors}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Statistical forecasting methods are usually fitted to the whole of the
+available history. For long series, with thousands of observations, this
+assumes one model with fixed parameters holds throughout, which is rarely
+plausible. We study whether automatic ARIMA and exponential smoothing (ETS),
+as implemented in the \texttt{aeon} toolkit, forecast better when fitted to a
+window of recent data, and how to choose or combine windows automatically. On
+LSSH-99, a collection of 99 long series of up to 10{,}000 observations, with
+one-step rolling-origin evaluation, fixed windows of 300--1{,}000 observations
+reduce the MAE of AutoARIMA and AutoETS by 6--8\% relative to the whole series.
+Combining the forecasts from a geometric grid of windows is more reliable than
+choosing one: the median over windows reduces error by 11--13\%, and weighting
+windows by their recent out-of-sample error by 12--15\%, improving about 70\%
+of series. On the 5{,}070 M4 series with at least 500
+observations, under the standard M4 protocol, the gains are smaller (OWA
+0.920 to 0.894--0.905 for \texttt{AutoARIMA}, 0.945 to 0.922--0.926 for
+\texttt{AutoETS}), concentrated on hourly, monthly and weekly series, with no
+effect on daily series. The median over windows, and the median of the half of
+the windows with the lowest out-of-sample error, are close to the best scheme
+on both benchmarks; weights from in-sample fit, Akaike-style weights and
+selection of the best-fitting window are no better, or worse, on M4,
+consistent with the forecast combination puzzle. We propose a simple wrapper
+that turns any forecaster into a window-combining forecaster.
+\end{abstract}
+
+% =====================================================================
+\section{Introduction}
+
+Automatic statistical forecasters such as \texttt{auto.arima} and
+\texttt{ets}~\citep{hyndman08auto,hyndman02state,hyndman08book} remain strong
+benchmarks: in the M4 competition combinations of them were among the most
+accurate methods~\citep{makridakis20m4}. They are almost always fitted to the
+whole of the available history. For the short series that dominate the M
+competitions this is sensible, since there is little data to spare. For long
+series it is less obvious. A series of 10{,}000 hourly observations covers more
+than a year; its level, seasonal profile and dynamics are unlikely to be
+constant over that period, and a model estimated on all of it averages over
+regimes that may no longer apply. Practical advice recognises this:
+\citet{hyndman21fpp3} note that ``most time series models do not work well for
+very long time series'' and suggest, for short-horizon forecasts, to ``throw
+away the earliest observations and only fit a model to the most recent
+observations''. They give no rule for how many to keep.
+
+The question of how much history to use has a long history in econometrics,
+where it is framed as the choice of an estimation window under structural
+breaks~\citep{pesaran07window} and has led to methods that combine forecasts
+across estimation windows~\citep{pesaran11averaging}. That work concerns
+mostly regression and autoregressive models with a fixed specification applied
+to macroeconomic and financial series. Here we ask the same question of
+automatic ETS and ARIMA, which select a model on every fit, on benchmark
+collections of long univariate series, and with the interaction between
+windows and the seasonal adjustment used in forecasting practice.
+
+We make three contributions.
+\begin{enumerate}
+\item An evaluation of training windows for automatic ARIMA and ETS on LSSH-99,
+a collection of 99 long series~\citep{banwell26forecasting}, and on the long
+series of M4, showing that fitting all the data is generally no better, and
+often clearly worse, than fitting recent data.
+\item A comparison of ways to choose a window or combine forecasts across
+windows: per-series and rolling selection, means, medians, trimmed means,
+weights from in-sample fit normalised for window length, Akaike-style weights,
+and weights from recent out-of-sample error.
+\item A simple forecaster wrapper derived from these results (its
+implementation and evaluation as an ordinary forecaster are in progress), and a
+store of all window forecasts that allows further combination schemes to be
+evaluated without refitting.
+\end{enumerate}
+
+% =====================================================================
+\section{Related work}
+\label{sec:related}
+
+\paragraph{Choosing the estimation window.}
+\citet{pesaran07window} frame the choice as a trade-off between the bias from
+using data from before a break and the variance from a shorter sample, and
+propose cross-validation methods to choose a single window together with
+methods that weight or pool forecasts from windows of different lengths.
+\citet{inoue17rolling} choose the rolling window to minimise an estimate of the
+forecaster's quadratic loss, by analogy with bandwidth selection in
+nonparametric estimation. \citet{clark09combining} show that combining
+forecasts from an expanding (recursive) and a rolling window is at least as
+accurate as either. \citet{rossi12robust} make the related point for
+evaluation: tests of predictive ability depend on the window, and repeating
+them over windows invites data snooping.
+
+\paragraph{Combining across windows.}
+\citet{pesaran11averaging} average one model's forecasts over estimation
+windows and find lower bias and RMSFE than any single window for all but the
+smallest breaks. \citet{tian14breaks} weight windows by the estimated
+probability that each point is the most recent break.
+\citet{assenmacher08swiss} find averaging over windows at least as effective as
+averaging over models for Swiss macroeconomic forecasts, with little gain from
+weighting schemes over equal weights, and \citet{jungmittag16air} find
+window-averaged SARIMA forecasts of monthly air travel generally better than
+single windows. Most recently, \citet{petersen26windows} compare training
+window selection methods for regression and random forests on non-stationary
+psychological time series: a simple average across windows and a super learner
+ensemble perform best, while selecting a single window by cross-validation
+performs poorly, and the expanding window is best only when the coefficients
+are stable.
+
+\paragraph{Down-weighting instead of truncating.}
+\citet{pesaran13optimal} derive the weights on past observations that minimise
+mean squared forecast error under breaks, close to exponential under
+continuous change; \citet{giraitis13adaptive} choose the discount rate of
+rolling and exponentially weighted estimators by cross-validation. Outside
+econometrics, adaptive windowing for drifting data streams
+\citep{bifet07adwin} and dynamic ensembles that weight forecasters over time
+\citep{cerqueira17arbitrated} address related problems.
+
+\paragraph{Forecast combination.}
+Equal weights are hard to beat: estimated weights rarely improve on the simple
+average~\citep{stock04combination}, because of the error in estimating them
+\citep{smith09puzzle,claeskens16puzzle}. Trimmed and Winsorised means are
+slightly more accurate and more robust than the mean~\citep{jose08robust}.
+\citet{kolassa11akaike} combines ETS models fitted to the same series with
+Akaike weights, which beat selection by an information criterion. Bagging ETS
+over bootstrapped series~\citep{bergmeir16bagging} improves on ETS, mainly
+through the uncertainty in model selection~\citep{petropoulos18bagging}, a
+mechanism that also operates when an automatic forecaster selects different
+models on different windows.
+
+\paragraph{What is new here.}
+We have not found an evaluation of window selection or combination for
+automatic ETS and ARIMA on benchmark collections of long series, of the median
+across windows, or of the interaction between windows and seasonal adjustment;
+nor a forecasting library that offers combination across estimation windows
+as a component.
+
+% =====================================================================
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Forecasters}
+We use four forecasters from \texttt{aeon}~\citep{aeon24jmlr}, at the code
+released in version 1.7: \texttt{AutoARIMA} (stepwise order search over
+non-seasonal ARIMA models, fitted by conditional sum of squares),
+\texttt{AutoETS} (selection over error, trend and seasonal components by AIC),
+and two fixed models, \texttt{ARIMA}(1,0,1) and simple exponential smoothing
+\texttt{ETS}(A,N,N), the toolkit defaults. As in the M4 benchmarks, the
+non-seasonal \texttt{AutoARIMA} and \texttt{ARIMA} are fitted to series
+deseasonalised by classical multiplicative decomposition when a 90\%
+autocorrelation test finds seasonality, and the forecasts are reseasonalised;
+\texttt{AutoETS} is given the seasonal period; \texttt{ETS}(A,N,N) is fitted to
+the raw series.
+
+\subsection{Training windows}
+Given a series $y_1,\dots,y_t$ observed up to the forecast origin $t$, the
+forecaster fitted to window $w$ uses $y_{t-w+1},\dots,y_t$; $w=0$ denotes the
+whole series. We use the grid
+\[
+W=\{50, 100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000, 7500\}
+\]
+plus the whole series, skipping windows at least as long as the history. Let
+$\hat y^{(w)}_{t+h}$ be the forecast from window $w$.
+
+\subsection{Choosing a window}
+\emph{Validation} selection chooses, per series, the window with the lowest
+error on a block of origins before the test period (LSSH-99), or on the last
+$h$ training observations (M4). \emph{Rolling} selection chooses, at each
+origin, the window with the lowest mean one-step error over the previous 30
+origins. \emph{Global} selection chooses one window for all series.
+
+\subsection{Combining windows}
+A combination forecasts $\sum_w \lambda_w \hat y^{(w)}_{t+h}$ with weights
+$\lambda_w\ge 0$ summing to one, or a robust location of the window forecasts.
+\begin{itemize}
+\item \emph{Mean}, \emph{median}, and the \emph{trimmed mean} (20\% from each
+end).
+\item \emph{In-sample fit.} With $e^{(w)}_s$ the in-sample one-step residuals of
+the fit to window $w$, we use per-point scores so that windows of different
+lengths are comparable: the mean squared residual
+$\mathrm{MSE}_w$, and the relative MAE $r_w$, the mean absolute residual divided
+by the mean absolute one-step change over the same points (the in-sample error
+of the naive forecast), which also removes the local scale of the series.
+Weights are $\lambda_w\propto \mathrm{MSE}_w^{-1}$, $\propto r_w^{-1}$ or
+$\propto r_w^{-2}$.
+\item \emph{Akaike-style.} The AIC is not comparable across samples of
+different size, so we scale the per-point Gaussian log-likelihood to a common
+length $n_0=100$: $\lambda_w\propto\exp\{-\tfrac{n_0}{2}(\log\mathrm{MSE}_w-
+\min_v\log\mathrm{MSE}_v)\}$.
+\item \emph{Best in-sample window}: the window with the smallest $r_w$.
+\item \emph{Out-of-sample error.} $\lambda_w\propto \mathrm{OOS}_w^{-1}$, with
+$\mathrm{OOS}_w$ the mean squared one-step error of window $w$ at the previous 30
+origins (LSSH-99) or on the M4 holdout; and the median of the better half of
+windows by $\mathrm{OOS}_w$.
+\item \emph{Minimum window.} The mean, median, inverse in-sample MSE and inverse
+out-of-sample MSE restricted to windows of at least 300 observations (and the
+whole series).
+\end{itemize}
+For multiplicative-error ETS models the residuals returned are relative errors;
+we convert them to the scale of the data by multiplying by the fitted values.
+
+% =====================================================================
+\section{Experimental design}
+\label{sec:design}
+
+\paragraph{LSSH-99.}
+The collection of~\citet{banwell26forecasting}: 99 long series (1{,}008 to
+10{,}000 observations), most from the Monash archive~\citep{godahewa21monash},
+including 57 long M4 series, with seasonal periods from the Monash conventions
+(48 half-hourly, 24 hourly, 7 daily, 144 ten-minute, 1440 minutely, 52 weekly,
+12 monthly). Each forecaster is refitted at each of the last 60 observations
+and forecasts one step ahead; origins 1--30 form a validation period and
+origins 31--60 the test period, the same test origins as in the evaluation of
+\texttt{aeon}'s forecasters by~\citet{banwell26forecasting}. Per series, the
+MAE over the test origins is divided by that of the naive (last value)
+forecast; methods are compared by the geometric mean of this ratio over 98
+series (one series is constant, and on one the naive forecast is exact), on
+the 36 sub-daily series and the 62 daily-or-slower series. For each method
+against the whole series we count series better and worse and apply a
+Wilcoxon signed-rank test to the log ratios, Holm-corrected within each
+forecaster. The whole-series forecasts are identical to those of the reference
+runs.
+
+\paragraph{M4 long series.}
+The 5{,}070 M4 series~\citep{makridakis20m4} with at least 500 training
+observations (2{,}946 daily, 1{,}403 monthly, 414 hourly, 252 weekly, 43
+quarterly, 12 yearly; median length 1{,}430), with the standard protocol: one
+origin at the end of the training series, the competition horizons, sMAPE and
+MASE averaged over the forecast points, and OWA relative to the published
+Naive2 forecasts on the same series. Each window is also fitted to the training
+series without its last $h$ observations, forecasting them, to provide a
+holdout for selection and for out-of-sample weights.
+
+\paragraph{Reproducibility.}
+All forecasts are stored per window, with the in-sample fit scores, so that any
+further combination can be evaluated without refitting. Code, results and the
+store are in the accompanying repository~\todo{URL}.
+
+% =====================================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Does a window beat the whole series?}
+
+Table~\ref{tab:lssh-windows} gives the LSSH-99 relative MAE of each fixed
+window. For \texttt{AutoARIMA}, \texttt{AutoETS} and \texttt{ARIMA}(1,0,1),
+windows of 300--1{,}000 observations beat the whole series by 6--8\%; very
+short windows (50--200) are no better than the whole series, and the error
+rises back towards the whole-series value as the window grows beyond 2{,}000.
+Simple exponential smoothing is almost unaffected (1--2\%). No single fixed
+window is significantly better than the whole series after correction for the
+13 windows tested.
+
+\begin{table}[t]
+\centering\small
+\caption{LSSH-99: relative MAE (geometric mean over 98 series of MAE divided by
+the naive MAE; below 1 is better than naive) of each forecaster fitted to the
+last $w$ observations at each of 30 one-step origins. Bold: best per row.}
+\label{tab:lssh-windows}
+\resizebox{\textwidth}{!}{\input{tables/lssh_windows.tex}}
+\end{table}
+
+\subsection{Choosing or combining windows}
+
+Table~\ref{tab:lssh-main} compares choosing a window with combining windows.
+Choosing per series on a validation block beats the best fixed window for
+\texttt{AutoARIMA} and \texttt{ARIMA}(1,0,1) but not for \texttt{AutoETS}; rolling selection, which re-chooses the window
+at each origin from the previous 30 errors, gains 12--13\% for
+\texttt{AutoARIMA} and \texttt{AutoETS}. Combination is at least as good and
+more reliable: the median over windows improves on the whole series by 11.5\%
+(\texttt{AutoARIMA}) and 13.2\% (\texttt{AutoETS}), for 66 and 73 of the 98
+series, both significant, and it is better than the mean for every forecaster.
+Weighting the windows by their recent out-of-sample error is better still for
+\texttt{AutoETS} (0.789 against 0.927 for the whole series, 72 series better).
+The oracle, which picks the best window per series with knowledge of the test
+errors, shows that more is available (0.73--0.75).
+
+\begin{table}[t]
+\centering\small
+\caption{LSSH-99: relative MAE of the whole series, the best fixed window (in
+brackets), window selection and window combination. Oracle: best window per
+series chosen on the test errors (not a method).}
+\label{tab:lssh-main}
+\resizebox{\textwidth}{!}{\input{tables/lssh_main.tex}}
+\end{table}
+
+\subsection{Weighting schemes}
+
+Table~\ref{tab:lssh-schemes} gives every combination scheme. Three findings
+stand out. First, the gains over the median are small: the best weighted
+schemes improve on it by 1--2\%, as the forecast combination
+puzzle~\citep{smith09puzzle,claeskens16puzzle} leads one to expect. Second,
+the schemes that rely most on in-sample fit quality, selecting the window with
+the best in-sample fit and Akaike-style weights (which concentrate almost all
+weight on the best-fitting window), are the weakest weighted schemes for
+\texttt{AutoARIMA} and \texttt{AutoETS}, and not significantly better than the
+whole series for \texttt{AutoARIMA}: in sample, a model fitted to fewer points
+fits them more closely. Third, inverse
+in-sample MSE weights do well (0.799 for \texttt{AutoARIMA}, 0.790 for
+\texttt{AutoETS}). They are far from selection: the largest weight is a median
+of about 0.2 (equal weights give 0.08), and they tilt the combination mildly
+towards shorter windows, over which the series has been calmer (weighted
+geometric mean window 480 against 597 under equal weights for
+\texttt{AutoARIMA}, 538 for \texttt{AutoETS}). Unlike the relative MAE, this
+score is not scale-free, so it rewards windows covering low-volatility periods,
+which on these data acts as a mild recency weighting.
+
+\begin{table}[t]
+\centering\small
+\caption{LSSH-99: relative MAE of each combination scheme, with the number of
+series better / worse than the whole series. $^*$: significantly different from
+the whole series (Wilcoxon signed-rank, Holm-corrected, $p<0.05$). Bold: best
+per forecaster.}
+\label{tab:lssh-schemes}
+\resizebox{\textwidth}{!}{\input{tables/lssh_schemes.tex}}
+\end{table}
+
+\subsection{Where windows help}
+
+Table~\ref{tab:lssh-periods} breaks the LSSH-99 results down by sampling
+frequency. The gains are concentrated on sub-daily data: hourly series
+(\texttt{AutoARIMA} 0.774 to 0.543 with the median) and minutely wind power,
+where the whole-series fits are worse than naive (1.49 and 1.19) and windows
+bring them to 0.64--0.75. \texttt{AutoETS} also gains strongly on half-hourly
+series (0.741 to 0.512), \texttt{AutoARIMA} does not. On weekly and monthly
+series windows help moderately; on daily series, which are close to random
+walks, they make little difference. A likely mechanism for the hourly series is that deseasonalisation
+and the seasonal models estimate the daily profile from the window, so the
+profile is local rather than averaged over a year.
+
+\begin{table}[t]
+\centering\small
+\caption{LSSH-99 by sampling frequency (seasonal period): relative MAE of the
+whole series, the median over windows and inverse out-of-sample MSE weights.}
+\label{tab:lssh-periods}
+\input{tables/lssh_periods.tex}
+\end{table}
+
+\subsection{M4 long series}
+
+Tables~\ref{tab:m4-main} and~\ref{tab:m4-schemes} give OWA on the 5{,}070
+long M4 series. The gains are much smaller than on LSSH-99: the best schemes
+reduce OWA from 0.920 to 0.892--0.898 for \texttt{AutoARIMA} and from 0.945 to
+0.922--0.926 for \texttt{AutoETS}, about 2--3\%. They are concentrated where
+LSSH-99 found them: hourly (\texttt{AutoARIMA} 0.692 to 0.578--0.648 for the
+schemes in Table~\ref{tab:m4-main} other than the mean), monthly (0.917 to
+0.850--0.876) and weekly series (0.878 to 0.829--0.860). Daily series,
+58\% of the subset and close to random walks, show no effect for any method.
+The M4 series are also shorter (median 1{,}430 against up to 10{,}000), and the
+forecasts multi-step.
+
+Very short windows are harmful on hourly series. Below 300 observations the M4
+seasonality test, which considers lags up to $10\log_{10}n$, no longer reaches
+lag 24, so the non-seasonal models are fitted without seasonal adjustment, and
+\texttt{AutoETS} fits seasonal models to as few as 50 points. These windows ruin
+the mean over windows (\texttt{AutoETS} OWA 1.027, worse than the whole series)
+but not the median (0.926): the median does not depend on choosing the minimum
+window well. Restricting the windows to at least 300 observations rescues the
+mean on M4 (\texttt{AutoARIMA} 0.897) but hurts every scheme on LSSH-99
+(\texttt{AutoETS} median 0.804 to 0.837), where short windows contribute to the
+one-step forecasts.
+
+The weighting schemes behave differently on the two benchmarks. Weights from
+in-sample fit, which were among the best on LSSH-99, are no better than the
+whole series on M4 for \texttt{AutoETS} (inverse in-sample MSE 0.943, relative
+MAE 0.955, best in-sample window 0.960, Akaike-style 0.978). Weights from the
+holdout error remain among the best (0.910 and 0.926 over all windows, 0.894 and
+0.922 over windows of at least 300). The median of the better half of the
+windows by out-of-sample error is among the four best schemes in all four
+comparisons (LSSH-99 0.805 and 0.796; M4 0.898 and 0.924 for \texttt{AutoARIMA}
+and \texttt{AutoETS}); the plain median and inverse out-of-sample MSE weights
+are within 2\% of the best scheme in each comparison.
+
+\begin{table}[t]
+\centering\small
+\caption{M4 series with at least 500 training observations: OWA relative to
+Naive2 by frequency. Holdout selection uses windows of at least 300
+observations; the combinations use all windows.}
+\label{tab:m4-main}
+\resizebox{\textwidth}{!}{\input{tables/m4_main.tex}}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\caption{M4 long series: OWA of each combination scheme (all frequencies),
+with the number of series with lower / higher MASE than the whole series.
+$^*$: per-series MASE significantly different from the whole series in either
+direction (Wilcoxon signed-rank, Bonferroni over 14 schemes). Bold: best per
+forecaster.}
+\label{tab:m4-schemes}
+\resizebox{\textwidth}{!}{\input{tables/m4_schemes.tex}}
+\end{table}
+
+\subsection{Cost}
+A window of 500--1{,}000 observations costs 2--4 times less to fit than the whole
+series on LSSH-99 (median \texttt{AutoARIMA} fit 0.20--0.35\,s against 0.84\,s;
+\texttt{AutoETS} 0.33--0.53\,s against 1.10\,s). Fitting every window costs
+about 4 times the whole-series fit (median over series and origins 3.7--4.0,
+interquartile range about 3.2--5.0), since most of the windows are short;
+rolling selection
+and out-of-sample weights additionally need the window forecasts at previous
+origins, which in a rolling evaluation are available at no extra cost.
+
+% =====================================================================
+\section{A window-combining forecaster}
+\label{sec:algorithm}
+
+The results suggest a simple wrapper, Algorithm~\ref{alg:windower}. It turns any
+forecaster into one that fits clones to a grid of recent windows and combines
+their forecasts with the median, which needs no extra fits and is within 2\%
+of the best scheme on both benchmarks; when out-of-sample errors per window are
+available (from a holdout, or from previous origins in a rolling deployment),
+the median of the better half of the windows is as robust and slightly more
+accurate. Two details follow from
+the experiments: the seasonal adjustment decision is taken once, on the whole
+series, so that short windows do not switch it off; and the smallest window is
+bounded below by a multiple of the seasonal period.
+
+\begin{algorithm}[t]
+\caption{\textsc{Windower}: fit and forecast with a combination of training windows}
+\label{alg:windower}
+\begin{algorithmic}[1]
+\REQUIRE forecaster $F$, series $y_{1:t}$, horizon $h$, seasonal period $m$,
+grid ratio $\rho$ (e.g.\ 1.5), minimum window $w_{\min}=\max(50, 3m)$,
+combination $C\in\{\text{median}, \text{median of better half}\}$
+\STATE decide seasonal adjustment on the whole series $y_{1:t}$ (if $F$ is non-seasonal)
+\STATE $W \gets \{w_{\min}\rho^k : w_{\min}\rho^k < t\} \cup \{t\}$ \COMMENT{geometric grid plus the whole series}
+\FOR{$w \in W$}
+  \STATE fit a clone $F_w$ to $y_{t-w+1:t}$, with the seasonal adjustment of line 1
+  \STATE $\hat y^{(w)}_{t+1:t+h} \gets$ forecast of $F_w$
+\ENDFOR
+\IF{$C$ is median}
+  \RETURN $\mathrm{median}_{w\in W}\, \hat y^{(w)}_{t+1:t+h}$ (per step)
+\ELSE
+  \STATE $W' \gets$ the half of $W$ with the lowest $\mathrm{OOS}_w$ (holdout or past one-step errors)
+  \RETURN $\mathrm{median}_{w\in W'}\, \hat y^{(w)}_{t+1:t+h}$
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\todo{Implement as \texttt{Windower} in horizon, evaluate as an ordinary
+forecaster on both benchmarks, and check it reproduces the offline results.
+Cheaper variants: fewer windows; fixed model structure across windows;
+incremental updates.}
+
+% =====================================================================
+\section{Discussion and limitations}
+
+\begin{itemize}
+\item \emph{When windows help.} The evidence is from real long series with
+structure that changes over time. The variance cost of windowing on a stable
+process is not measured here; simulated controls (stationary processes,
+processes with breaks or drifting parameters) are needed to show when
+windowing helps and when it costs.\todo{simulations}
+\item \emph{Seasonal adjustment.} Windows below 300 change the seasonality
+decision for hourly series under the M4 rule, so short-window results on
+hourly data mix two effects.
+\item \emph{Minutely wind power.} The largest gains (5 series of one dataset)
+need inspection before being relied on.\todo{inspect}
+\item \emph{Selection noise.} Choices made from 30 one-step errors, or from one
+M4 holdout, are noisy; the oracle is optimistic, particularly on M4 with one
+test period per series.
+\item \emph{Multiple comparisons.} Many windows and schemes were compared on the
+same test origins; following \citet{rossi12robust}, the headline results are
+the schemes defined in advance (median, mean) rather than the best of many.
+\item \emph{Other forecasters.} Only aeon's implementations were evaluated.
+\end{itemize}
+
+% =====================================================================
+\section{Conclusion}
+For long series, automatic ARIMA and ETS should not be fitted to all the data
+by default. Fitting the forecaster to a geometric grid of recent windows and
+taking the median of the forecasts reduced the error of \texttt{AutoARIMA} and
+\texttt{AutoETS} by 11--13\% on LSSH-99 and their OWA by 2\% on the long M4
+series, at about four times the cost of one fit. The gains are largest on
+high-frequency seasonal series and absent on series close to a random walk.
+Weighting windows by in-sample fit is not reliable; using out-of-sample error
+to keep the better half of the windows helps slightly. Choosing a single window
+is noisier than combining. \todo{revise after the wrapper evaluation and the
+simulated controls.}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}

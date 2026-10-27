@@ -43,7 +43,10 @@ def combine(preds: np.ndarray, insample_mse: np.ndarray, insample_rel_mae: np.nd
     lm = np.log(insample_mse)
     ok = np.isfinite(lm)
     a = np.zeros_like(lm)
-    a[ok] = np.exp(-0.5 * REFERENCE_N * (lm[ok] - lm[ok].min()))
+    if ok.any():
+        a[ok] = np.exp(-0.5 * REFERENCE_N * (lm[ok] - lm[ok].min()))
+    else:  # e.g. a constant series: no usable score, so equal weights
+        a[:] = 1.0
     out["akaike_n100"] = _weighted(preds, a)
     r = np.where(np.isfinite(insample_rel_mae), insample_rel_mae, np.inf)
     out["best_insample"] = preds[int(np.argmin(r))]

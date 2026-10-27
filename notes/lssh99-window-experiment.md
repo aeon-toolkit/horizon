@@ -114,6 +114,16 @@ not run); an earlier scoring that filled them with the whole series gave
 
 ## Overnight task (user, 2026-10-27 ~19:50): assess all combination options
 
+**DONE 20:40.** All schemes scored (`papers/windowed-ets-arima/evaluate_schemes.py`,
+results `results/aeon-8585c7bf/window-combine/`); first paper draft in
+`papers/windowed-ets-arima/` (main.tex, main.pdf, verified refs.bib). Summary:
+best on LSSH-99 inverse out-of-sample MSE / inverse in-sample MSE (AutoETS 0.789 /
+0.790, median 0.804, whole 0.927); best on M4 the out-of-sample-weighted schemes
+over windows >= 300 (AutoARIMA 0.894, AutoETS 0.922; whole 0.920 / 0.945);
+in-sample weights do not transfer to M4; median of the better half is in the top
+four everywhere, the plain median within 2% of the best everywhere.
+
+
 When `scratch/run_window_fitstats.sh` finishes (log `scratch/run_window_fitstats.log`,
 LSSH-99 then M4, with in-sample fit scores):
 1. `python scripts/window_store.py build --lssh99 $RESULTS/lssh99-window-fitstats-8585c7bf

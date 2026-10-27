@@ -1,6 +1,7 @@
 # Fitting AutoARIMA and AutoETS to recent data: training windows for long series
 
-**Status: outline and partial draft (2026-10-27).** aeon commit 8585c7bf (the
+**Superseded by the paper draft `papers/windowed-ets-arima/main.tex` (2026-10-27),
+which has the combination-scheme results.** Earlier status: outline and partial draft. aeon commit 8585c7bf (the
 forecasting code released in aeon 1.7). Experiment notes and the running plan:
 `notes/lssh99-window-experiment.md`.
 
