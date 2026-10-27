@@ -381,8 +381,18 @@ series at length 100 and 20 at 1,000 and 10,000):
 - statsforecast's Theta and DOTM grow roughly with the square of the length
   (Theta: 9 ms, 111 ms, 1.2 s at 1,000, 3,000, 10,000). The time is all in its
   compiled `_lib.theta.optimize`, and a single likelihood pass
-  (`pegels_resid`) takes 63 ms at length 10,000, so each evaluation appears to
-  be quadratic in the length (the C++ source was not inspected).
+  (`pegels_resid`) takes 63 ms at length 10,000, so each evaluation is
+  quadratic in the length. Confirmed in the C++ source (`src/theta.cpp`,
+  2026-10-27): at every time step `calc` calls `forecast`, which allocates a
+  new state matrix and copies the whole state history up to that step, though
+  `update` reads only the previous row. statsforecast's CES (`src/ces.cpp`)
+  forecasts from a fixed buffer of `2m` rows, so it stays linear.
+- smooth's AutoCES is 31-66x slower than aeon's at every length, a roughly
+  constant factor, not worse scaling. Profile at length 1,000 (seasonal, m =
+  12): about 870 cost-function evaluations over the four CES variants (nlopt),
+  60% of the time in the C++ `adamCore.filter` (backcasting: forward and
+  backward passes per evaluation) and the rest Python overhead per evaluation
+  (array conversion, an eigenvalue admissibility check).
 - statsforecast's AutoCES fails on all 20 AR(2) series of length 10,000 ("no
   model able to be fitted"); its 10,000 figure is over the other 11 processes.
   aeon's AutoCES fits them.
