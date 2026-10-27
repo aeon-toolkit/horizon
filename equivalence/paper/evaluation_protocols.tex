@@ -7,8 +7,10 @@
 \label{sec:protocols}
 
 There is no standard protocol for evaluating forecasters. A protocol fixes the
-forecast origins (one fixed origin or a rolling origin), whether models are
-refitted at each origin, the horizon, how multi-step forecasts are made
+forecast origins, the points at which the history given to a model ends and
+its forecast begins (a single origin per series, which is then the train/test
+boundary, or an origin rolled forward through the test period), whether models
+are refitted at each origin, the horizon, how multi-step forecasts are made
 (recursively, feeding one-step predictions back in; directly, one model per
 step; or one model for the whole horizon~\citep{taieb2012review}), whether
 models are local, global or pretrained, and how errors are scaled and

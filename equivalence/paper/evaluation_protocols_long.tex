@@ -10,8 +10,11 @@
 Unlike classification and regression, where a train/test split of independent
 cases is largely standard, there is no single accepted protocol for evaluating
 forecasters. A protocol fixes several choices, each of which can change the
-ranking of methods: where the forecast origins are placed (one fixed origin, or
-several rolling origins); whether a model is refitted at each origin; how far
+ranking of methods: where the forecast origins are placed, an origin being the
+point at which the history given to a model ends and its forecast begins (one
+fixed origin per series, which is then the train/test boundary, or several
+origins rolled forward through the test period, the history at each including
+the test points already passed); whether a model is refitted at each origin; how far
 ahead it forecasts and how multi-step forecasts are produced; whether a model
 is fitted to one series at a time (local) or to a collection of series
 (global), possibly after pretraining on other data; and how errors are scaled
