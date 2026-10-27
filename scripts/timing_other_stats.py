@@ -45,6 +45,14 @@ OFFSET = 10_000_000
 TIME_BUDGET = 30.0  # skip longer lengths once an entry's median exceeds this
 
 
+def _version(package: str) -> dict:
+    """Version and install path of a package, to tell statsforecast builds apart."""
+    import importlib
+
+    module = importlib.import_module(package)
+    return {"version": getattr(module, "__version__", None), "path": module.__file__}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, required=True)
@@ -52,7 +60,11 @@ def main() -> None:
     parser.add_argument("--lengths", type=int, nargs="+", default=LENGTHS)
     parser.add_argument("--all-processes", action="store_true",
                         help="time on all 12 horizon processes, not just two ETS ones")
+    parser.add_argument("--entries", nargs="+", metavar="BACKEND:FORECASTER",
+                        help="time only these (e.g. statsforecast:Theta); default all")
     args = parser.parse_args()
+    entries = ([tuple(e.split(":", 1)) for e in args.entries] if args.entries
+               else ENTRIES)
     args.out.mkdir(parents=True, exist_ok=True)
     path = args.out / "timing.csv"
     done = set()
@@ -61,7 +73,7 @@ def main() -> None:
         done = set(zip(prev.process, prev.n, prev.repeat, prev.backend, prev.forecaster))
 
     rng = np.random.default_rng(0)
-    for backend, name in ENTRIES:  # warm-up: compile on short series
+    for backend, name in entries:  # warm-up: compile on short series
         for period in (1, 12):
             y = 100 + np.cumsum(rng.normal(size=120)) + (
                 5 * np.sin(np.arange(120) * 2 * np.pi / period) if period > 1 else 0)
@@ -79,7 +91,7 @@ def main() -> None:
             for r in range(args.repeats):
                 y = np.asarray(proc.sample(n, random_state=_seed(pidx, n, r, OFFSET)),
                                dtype=np.float64)
-                for backend, name in ENTRIES:
+                for backend, name in entries:
                     if (backend, name) in over or (proc.name, n, r, backend, name) in done:
                         continue
                     start = time.perf_counter()
@@ -101,7 +113,8 @@ def main() -> None:
                .time_s.median().rename("median_s").reset_index())
     summary.to_csv(args.out / "timing_summary.csv", index=False)
     (args.out / "run_info.json").write_text(json.dumps(
-        {"command": " ".join(sys.argv), "aeon": mc._aeon_info() if hasattr(mc, "_aeon_info") else None,
+        {"command": " ".join(sys.argv),
+         "statsforecast": _version("statsforecast"), "aeon": mc._aeon_info() if hasattr(mc, "_aeon_info") else None,
          "repeats": args.repeats, "lengths": args.lengths}, indent=2, default=str))
 
 

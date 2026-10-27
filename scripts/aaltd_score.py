@@ -8,8 +8,13 @@ the problems it completed, its mean rank by MAE (among the forecasters that comp
 and its failed fits. Problems whose training series is constant are left out,
 as is relative MAE on problems where the Naive forecast is exact.
 
+``--forecasters`` names a file listing the forecasters to score, one per line
+(the paper's fixed set, ``paper/lssh99_forecasters.txt``); a listed forecaster
+with fits missing is an error, so later runs in the same directory cannot
+change the scores.
+
     python scripts/aaltd_score.py --results /local/.../aaltd-8585c7bf \\
-        --out results/aeon-8585c7bf/aaltd
+        --forecasters paper/lssh99_forecasters.txt --out results/aeon-8585c7bf/aaltd
 """
 
 from __future__ import annotations
@@ -27,6 +32,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--forecasters", type=Path,
+                        help="file listing the forecasters to score, one per line")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -34,6 +41,13 @@ def main() -> None:
                      ignore_index=True)
     rows = rows.drop_duplicates(["forecaster", "problem", "origin"], keep="last")
     origins = rows.origin.max() + 1
+    if args.forecasters:
+        names = args.forecasters.read_text().split()
+        fits = rows.groupby("forecaster").size().reindex(names, fill_value=0)
+        expected = rows.problem.nunique() * origins
+        if (fits < expected).any():
+            raise SystemExit(f"fits missing (of {expected}):\n{fits[fits < expected]}")
+        rows = rows[rows.forecaster.isin(names)]
     scale = {}
     for p in rows.problem.unique():
         y = load(p)[: -origins]

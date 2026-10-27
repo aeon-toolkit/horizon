@@ -1,5 +1,10 @@
 # M4 and aaltd results for the paper (aeon 8585c7bf)
 
+**Superseded for numbers** (2026-10-27): the fixed results, every forecaster,
+are in `paper/m4_league.md` and `paper/lssh99_league.md`; `paper/README.md` says
+how each part of Section 5 is reproduced. The LSSH-99 table below predates the
+(Δy) regressors CIF, TSF, RISE, Catch22, Summary and RandF (Δy).
+
 All runs use aeon commit 8585c7bf (worktree `aeon-bench-next`) with no aeon
 code modified. Scripts: `scripts/m_comp_experiments.py` (M4),
 `scripts/aaltd_experiments.py` and `scripts/aaltd_score.py` (aaltd). Run log:
