@@ -96,3 +96,19 @@ model; SETARTree/SETARForest stay far worse than Naive either way.
   scaling; SETAR-family forecasts explode on M4 even at step 1.
 - TAR raises a singular-matrix error when a regime is all zeros.
 - TensorFlow models leak host memory across fits.
+
+## LSSH-99 without seasonality (2026-10-27)
+
+`scripts/aaltd_noseason.py`, results in
+`/local/ajb2u23/Results/Forecasting/aaltd-8585c7bf-noseason/`. SCUM with period
+1 (done); DrCIF (Δy) and TCN (Δ) without deseasonalising (running, slow; the
+user chose not to speed them up: the paper uses what is complete).
+
+SCUM relative MAE vs Naive (geometric mean, 98 series), with the Monash period
+vs period 1: all 0.843 vs 0.973 (period 1 is 15% worse). By period: 7 (daily)
+1.054 vs 1.061 (no difference; weather/river/sunspot have no weekly cycle and
+the members decline it), 12: 0.965 vs 1.011, 24: 0.694 vs 0.895, 48: 0.575 vs
+0.834, 52 (M4 weekly): 0.699 vs 0.971, 144: 1.026 vs 0.933, 1440: 1.011 vs
+0.991. Seasonal SCUM fails on all four traffic_hourly series (1.6-3.5x naive,
+vs 1.0-1.1 with period 1); traffic has a 168-hour weekly cycle on top of the
+daily one. Not yet checked which member fails.
