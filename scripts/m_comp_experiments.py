@@ -57,6 +57,7 @@ import multiprocessing as mp
 import os
 import platform
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -120,16 +121,60 @@ NUMBA_WARMUP_FORECASTERS = frozenset(
 NONSEASONAL_AEON_FORECASTERS = frozenset(
     {"ARIMA", "AutoARIMA", "Theta", "TAR", "AutoTAR", "TVP", "CES"}
 )
+# aeon time series regressors wrapped as DrCIFDeltaY is (level windows of 100,
+# target the next change): name -> (module, class, constructor arguments).
+# Interval forests get 50 trees, as DrCIF. Hydra/MultiRocketHydra need torch
+# and FreshPRINCE/TSFresh need tsfresh, neither installed in aeon-fcbench.
+_SEEDED = {"random_state": 0, "n_jobs": 1}
+DELTAY_REGRESSORS = {
+    "CIFDeltaY": ("interval_based", "CanonicalIntervalForestRegressor",
+                  {"n_estimators": 50, **_SEEDED}),
+    "TSFDeltaY": ("interval_based", "TimeSeriesForestRegressor",
+                  {"n_estimators": 50, **_SEEDED}),
+    "RISEDeltaY": ("interval_based", "RandomIntervalSpectralEnsembleRegressor",
+                   {"n_estimators": 50, **_SEEDED}),
+    "IntervalForestDeltaY": ("interval_based", "IntervalForestRegressor",
+                             {"n_estimators": 50, **_SEEDED}),
+    "RandomIntervalDeltaY": ("interval_based", "RandomIntervalRegressor", _SEEDED),
+    "QUANTDeltaY": ("interval_based", "QUANTRegressor", {"random_state": 0}),
+    "Catch22DeltaY": ("feature_based", "Catch22Regressor", _SEEDED),
+    "SummaryDeltaY": ("feature_based", "SummaryRegressor", _SEEDED),
+    "RocketDeltaY": ("convolution_based", "RocketRegressor", _SEEDED),
+    "MiniRocketDeltaY": ("convolution_based", "MiniRocketRegressor", _SEEDED),
+    "MultiRocketDeltaY": ("convolution_based", "MultiRocketRegressor", _SEEDED),
+    "RDSTDeltaY": ("shapelet_based", "RDSTRegressor", _SEEDED),
+    "RISTDeltaY": ("hybrid", "RISTRegressor", _SEEDED),
+    # Euclidean: the default DTW on up to 10,000 training windows is quadratic
+    "KNNDeltaY": ("distance_based", "KNeighborsTimeSeriesRegressor",
+                  {"distance": "euclidean", "n_jobs": 1}),
+}
+# aeon deep learning regressors wrapped the same way, on standardised level
+# windows from the last DL_MAX_TRAIN windows, DL_REGRESSOR_EPOCHS epochs (the
+# defaults, 1500-2000 for most, would take weeks): name -> (class, arguments)
+DL_REGRESSOR_EPOCHS = 100
+DL_DELTAY_REGRESSORS = {
+    "FCNDeltaY": ("FCNRegressor", {}),
+    "ResNetDeltaY": ("ResNetRegressor", {}),
+    "InceptionTimeDeltaY": ("InceptionTimeRegressor", {}),
+    "LITETimeDeltaY": ("LITETimeRegressor", {}),
+    "TimeCNNDeltaY": ("TimeCNNRegressor", {}),
+    "MLPDeltaY": ("MLPRegressor", {}),
+    "EncoderDeltaY": ("EncoderRegressor", {}),
+    "DisjointCNNDeltaY": ("DisjointCNNRegressor", {}),
+    "RecurrentDeltaY": ("RecurrentRegressor", {}),
+}
 # Machine learning and deep learning forecasters, also fitted to deseasonalised
 # series with --deseasonalise, as M4's own ML benchmarks (MLP, RNN) were.
 ML_DL_AEON_FORECASTERS = frozenset(
     {"SETAR", "SETARTree", "SETARForest", "RegressionForecaster", "RidgeDiff",
      "RandF", "DrCIF", "DrCIFDiff", "DrCIFDeltaY", "TCNForecaster", "NBeatsForecaster",
-     "DeepARForecaster", "TCNDiff", "DeepARDiff", "NBeatsDiff"}
+     "DeepARForecaster", "TCNDiff", "DeepARDiff", "NBeatsDiff",
+     "SETARDiff", "SETARTreeDiff", "SETARForestDiff", "RandFDeltaY"}
+    | set(DELTAY_REGRESSORS) | set(DL_DELTAY_REGRESSORS)
 )
 TENSORFLOW_FORECASTERS = frozenset(
     {"TCNForecaster", "NBeatsForecaster", "DeepARForecaster",
-     "TCNDiff", "DeepARDiff", "NBeatsDiff"}
+     "TCNDiff", "DeepARDiff", "NBeatsDiff"} | set(DL_DELTAY_REGRESSORS)
 )
 DESEASONALISED_AEON_FORECASTERS = NONSEASONAL_AEON_FORECASTERS | ML_DL_AEON_FORECASTERS
 DESEASONALISE_ENV_VAR = "M_COMP_DESEASONALISE"
@@ -184,6 +229,12 @@ FORECASTER_ALIASES = {
     "Theta": "Theta",
     "DrCIFDiff": "DrCIFDiff",
     "DrCIFDeltaY": "DrCIFDeltaY",
+    "SETARDiff": "SETARDiff",
+    "SETARTreeDiff": "SETARTreeDiff",
+    "SETARForestDiff": "SETARForestDiff",
+    "RandFDeltaY": "RandFDeltaY",
+    **{name: name for name in DELTAY_REGRESSORS},
+    **{name: name for name in DL_DELTAY_REGRESSORS},
 }
 
 
@@ -1157,9 +1208,15 @@ class TargetDifferenceRegressionForecaster:
     only the target is differenced, not the inputs.
     """
 
-    def __init__(self, window: int, regressor):
+    def __init__(self, window: int, regressor, collection: bool = True):
         self.window = window
         self.regressor = regressor
+        # True: aeon collection regressor, windows as (n, 1, window); False:
+        # tabular sklearn regressor, windows as (n, window)
+        self.collection = collection
+
+    def _x(self, X):
+        return X.reshape(X.shape[0], 1, -1) if self.collection else X
 
     def fit(self, y):
         """Fit the regressor on level windows with next-step change targets."""
@@ -1169,10 +1226,10 @@ class TargetDifferenceRegressionForecaster:
         X, target = self._training_data(y)
         self.regressor_ = clone(self.regressor)
         start = time.perf_counter()
-        self.regressor_.fit(X.reshape(X.shape[0], 1, -1), target)
+        self.regressor_.fit(self._x(X), target)
         self.fit_time_millis_ = int((time.perf_counter() - start) * 1000)
         fitted_changes = _as_float_array(
-            self.regressor_.predict(X.reshape(X.shape[0], 1, -1))
+            self.regressor_.predict(self._x(X))
         )
         last = y[self.window - 1 : -1]
         self.fitted_values_ = last + fitted_changes
@@ -1190,7 +1247,7 @@ class TargetDifferenceRegressionForecaster:
         history = _as_float_array(y)
         forecasts = np.empty(int(prediction_horizon), dtype=np.float64)
         for i in range(int(prediction_horizon)):
-            x = history[-self.window :].reshape(1, 1, -1)
+            x = self._x(history[-self.window :].reshape(1, -1))
             nxt = history[-1] + float(self.regressor_.predict(x)[0])
             forecasts[i] = nxt
             history = np.append(history, nxt)
@@ -1203,6 +1260,40 @@ class TargetDifferenceRegressionForecaster:
             "target": "change from last observation",
             "regressor": self.regressor,
         }
+
+
+class StandardisedTargetDifferenceForecaster(TargetDifferenceRegressionForecaster):
+    """:class:`TargetDifferenceRegressionForecaster` for aeon's deep regressors.
+
+    The series is standardised by the mean and standard deviation of the
+    training history, which is cut to the last ``max_windows`` windows, and the
+    regressor predicts the next change on that scale. In-sample fitted values
+    cover only those windows.
+    """
+
+    def __init__(self, window: int, regressor, max_windows: int):
+        super().__init__(window, regressor)
+        self.max_windows = max_windows
+
+    def fit(self, y):
+        """Standardise the recent history and fit the regressor on it."""
+        import tensorflow as tf
+
+        tf.keras.backend.clear_session()
+        y = _as_float_array(y)[-(self.max_windows + self.window) :]
+        self.mean_ = float(np.mean(y))
+        sd = float(np.std(y))
+        self.scale_ = sd if sd > 0 else 1.0
+        super().fit((y - self.mean_) / self.scale_)
+        self.fitted_values_ = self.fitted_values_ * self.scale_ + self.mean_
+        self.residuals_ = self.residuals_ * self.scale_
+        self.forecast_ = self.forecast_ * self.scale_ + self.mean_
+        return self
+
+    def iterative_forecast(self, y, prediction_horizon: int) -> np.ndarray:
+        """Forecast on the standardised scale and unscale."""
+        z = (_as_float_array(y) - self.mean_) / self.scale_
+        return super().iterative_forecast(z, prediction_horizon) * self.scale_ + self.mean_
 
 
 class StandardisedForecaster:
@@ -1248,6 +1339,8 @@ class StandardisedForecaster:
         and long-lived workers grew to 7 GB each and were killed for memory."""
         import gc
 
+        if "tensorflow" not in sys.modules:  # not a deep learner
+            return
         import tensorflow as tf
 
         for attr in ("model_", "training_model_"):
@@ -1392,6 +1485,41 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
         from aeon.forecasting.machine_learning import SETARForest
 
         return SETARForest()
+    if name in {"SETARDiff", "SETARTreeDiff", "SETARForestDiff"}:
+        # as shipped, on standardised first differences (full history)
+        model = _build_aeon_forecaster(name[: -len("Diff")], np.diff(y), h, period)
+        return StandardisedForecaster(model, difference=True)
+    if name in DL_DELTAY_REGRESSORS:
+        import tempfile
+
+        from aeon.regression import deep_learning
+
+        cls, kwargs = DL_DELTAY_REGRESSORS[name]
+        regressor = getattr(deep_learning, cls)(
+            n_epochs=DL_REGRESSOR_EPOCHS, random_state=0,
+            file_path=tempfile.mkdtemp(prefix="aeon-dl-") + "/", **kwargs
+        )
+        return StandardisedTargetDifferenceForecaster(
+            window=max(2, min(100, int(y.size) - 3)), regressor=regressor,
+            max_windows=DL_MAX_TRAIN,
+        )
+    if name in DELTAY_REGRESSORS:
+        import importlib
+
+        module, cls, kwargs = DELTAY_REGRESSORS[name]
+        regressor = getattr(importlib.import_module(f"aeon.regression.{module}"), cls)
+        return TargetDifferenceRegressionForecaster(
+            window=max(2, min(100, int(y.size) - 3)), regressor=regressor(**kwargs)
+        )
+    if name == "RandFDeltaY":
+        from sklearn.ensemble import RandomForestRegressor
+
+        # as DrCIFDeltaY: level windows of 100, target the next change
+        return TargetDifferenceRegressionForecaster(
+            window=max(2, min(100, int(y.size) - 3)),
+            regressor=RandomForestRegressor(random_state=0),
+            collection=False,
+        )
     if name in {"TCNDiff", "DeepARDiff", "NBeatsDiff"}:
         # as the plain deep learners, but on standardised first differences of
         # at most the last DL_MAX_TRAIN observations (full histories of the long
