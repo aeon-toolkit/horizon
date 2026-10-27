@@ -70,7 +70,49 @@ points). `scripts/m4_window.py`, `scripts/m4_window_score.py`, results
 `results/aeon-8585c7bf/m4-window/`. By frequency and by length band
 (500-999, 1,000-1,999, 2,000+).
 
-(results to come)
+Run 18:35-18:57, 4 x 87,142 fits, none failed. OWA against Naive2 on the same
+5,070 series (below 1: better than Naive2).
+
+**All windows (50 to 7,500).** Short windows are harmful on hourly series:
+below 300 points the M4 seasonality test no longer covers lag 24, so the
+non-seasonal models are fitted without deseasonalising (AutoARIMA hourly OWA
+2.3-2.7 at 50-200 points), and AutoETS fits seasonal models to 50 points (8.1).
+These windows also wreck the average over windows (AutoARIMA 0.975, AutoETS
+1.027, worse than the whole series). Results with all windows:
+`results/aeon-8585c7bf/m4-window/`.
+
+**Windows of at least 300 points** (`results/aeon-8585c7bf/m4-window-min300/`):
+
+| | | Yearly | Quart. | Monthly | Weekly | Daily | Hourly | All | better / worse than whole series |
+|---|---|---|---|---|---|---|---|---|---|
+| AutoARIMA | whole series | 1.019 | 0.998 | 0.917 | 0.878 | 1.007 | 0.692 | 0.920 | |
+| | validation | 1.010 | 0.990 | 0.876 | 0.860 | 1.007 | 0.578 | 0.897 | 2,054 / 1,730 |
+| | average | 1.008 | 0.995 | 0.879 | 0.841 | 0.999 | 0.631 | 0.897 | 2,929 / 2,055 |
+| | oracle | 0.972 | 0.946 | 0.798 | 0.715 | 0.912 | 0.530 | 0.812 | |
+| AutoETS | whole series | 0.990 | 0.939 | 0.869 | 0.963 | 1.002 | 0.788 | 0.945 | |
+| | validation | 0.955 | 0.945 | 0.857 | 0.928 | 0.999 | 0.768 | 0.934 | 1,898 / 1,739 |
+| | average | 0.987 | 0.936 | 0.848 | 0.947 | 0.999 | 0.795 | 0.935 | 2,773 / 2,210 |
+| | oracle | 0.948 | 0.890 | 0.755 | 0.838 | 0.956 | 0.595 | 0.849 | |
+
+Series: 12 yearly, 43 quarterly, 1,403 monthly, 252 weekly, 2,946 daily,
+414 hourly. Better / worse: series with lower / higher test MASE than the whole
+series; all four differences are significant (Wilcoxon, p <= 0.001).
+
+- Overall the gain is small: 2.5% for AutoARIMA, 1% for AutoETS (ARIMA 3%;
+  SES none). It is concentrated where LSSH-99 found it: hourly (AutoARIMA 16%
+  with validation selection), monthly (4-5%) and weekly (2-4%).
+- Daily series, 58% of the subset, show no effect for any method. M4 daily series
+  are close to random walks (Naive2 is hard to beat), so the window cannot help.
+- Selection on the single M4 holdout (h points) and averaging give similar
+  gains here; on LSSH-99 averaging was more reliable than a per-series validation
+  choice. The oracle shows large headroom, but with one multi-step test period per
+  series it is very optimistic.
+- Smaller than on LSSH-99 (12-13%): the M4 subset is shorter (median length
+  about 2,000 against up to 10,000), multi-step, and dominated by daily series.
+
+Consequences for the algorithm: a minimum window (here 300; in general enough for
+the seasonal test and for seasonal models, e.g. several periods), and the
+deseasonalisation decision taken on the whole series.
 
 ### 3.3 Simulated controls (to do)
 
