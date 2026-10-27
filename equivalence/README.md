@@ -387,6 +387,10 @@ series at length 100 and 20 at 1,000 and 10,000):
   new state matrix and copies the whole state history up to that step, though
   `update` reads only the previous row. statsforecast's CES (`src/ces.cpp`)
   forecasts from a fixed buffer of `2m` rows, so it stays linear.
+  Already fixed upstream after 2.1.1: statsforecast PR #1232 (merged
+  2026-09-18, "theta::forecast ... O(h) instead of O(i + h)"), not yet in a
+  release (latest v2.1.1, 2026-07-16). The 1,000 and 10,000 speed-ups are
+  therefore specific to statsforecast <= 2.1.1.
 - smooth's AutoCES is 31-66x slower than aeon's at every length, a roughly
   constant factor, not worse scaling. Profile at length 1,000 (seasonal, m =
   12): about 870 cost-function evaluations over the four CES variants (nlopt),
