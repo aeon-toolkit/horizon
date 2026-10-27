@@ -12,8 +12,8 @@ origin; per series, its test MAE is divided by the naive (last value) MAE.
   previous 30 origins.
 - ``global``: one window for every series, the one with the lowest geometric
   mean relative MAE over the validation origins.
-- ``average``: the mean of the forecasts from every window, including the
-  whole series (no selection).
+- ``average``: the mean of the forecasts from every window fitted (those
+  shorter than the history, and the whole series), no selection.
 - ``oracle``: per series, the window with the lowest test MAE (not a real
   method: an upper bound on what selecting one window per series can gain).
 
@@ -63,24 +63,27 @@ def holm(p: pd.Series) -> pd.Series:
     return pd.Series(adj).reindex(p.index)
 
 
-def predictions(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def predictions(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Wide tables (problem, origin) x window of predictions, and actual/naive.
 
-    Windows not run because they are at least as long as the history take the
-    whole-series prediction.
+    In the first table, windows not run because they are at least as long as the
+    history take the whole-series prediction; the second holds only the
+    predictions actually made.
     """
     ok = rows[(rows.status == "ok") & rows.pred.notna()]
     pred = ok.pivot_table(index=["problem", "origin"], columns="window", values="pred")
+    raw = pred.copy()
     full = pred[0]
     for w in pred.columns:
         pred[w] = pred[w].fillna(full) if w else pred[w]
     truth = rows.drop_duplicates(["problem", "origin"]).set_index(
         ["problem", "origin"])[["actual", "naive"]]
-    return pred.sort_index(), truth.loc[pred.index]
+    pred = pred.sort_index()
+    return pred, raw.loc[pred.index], truth.loc[pred.index]
 
 
 def score(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
-    pred, truth = predictions(rows)
+    pred, raw, truth = predictions(rows)
     err = pred.sub(truth.actual, axis=0).abs()
     naive_err = (truth.naive - truth.actual).abs()
     origin = err.index.get_level_values("origin")
@@ -115,8 +118,8 @@ def score(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     rel_val = val_mae.div(naive_val.where(naive_val > 0), axis=0)
     w_global = max(windows, key=lambda w: -gmean(rel_val[w]))
     methods["global"] = test_mae[w_global]
-    # average over windows
-    avg = pred.mean(axis=1).sub(truth.actual).abs()
+    # average over the windows fitted (each distinct window counted once)
+    avg = raw.mean(axis=1).sub(truth.actual).abs()
     methods["average"] = avg[test].groupby("problem").mean()
     methods["oracle"] = test_mae.min(axis=1)
 

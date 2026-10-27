@@ -67,18 +67,23 @@ geometric mean over 98 series; ratio = geometric mean of method / whole series.
 
 | | whole series | best fixed w | rolling selection | average over windows | oracle |
 |---|---|---|---|---|---|
-| AutoARIMA | 0.918 | 0.846 (w=500) | 0.800 (ratio 0.872) | 0.835 (0.910; 67 better / 31 worse, Holm p < 0.001) | 0.745 |
-| AutoETS | 0.927 | 0.859 (w=1000) | 0.808 (0.871; Holm p = 0.019) | 0.816 (0.880; 70 / 28, Holm p < 0.001) | 0.734 |
-| ARIMA (1,1) | 0.932 | 0.862 (w=300) | 0.823 (0.883) | 0.868 (0.931) | 0.787 |
+| AutoARIMA | 0.918 | 0.846 (w=500) | 0.800 (ratio 0.872) | 0.834 (0.909; 66 better / 32 worse, Holm p = 0.002) | 0.745 |
+| AutoETS | 0.927 | 0.859 (w=1000) | 0.808 (0.871; Holm p = 0.019) | 0.818 (0.882; 68 / 30, Holm p < 0.001) | 0.734 |
+| ARIMA (1,1) | 0.932 | 0.862 (w=300) | 0.823 (0.883) | 0.881 (0.945) | 0.787 |
 | ETS (SES) | 1.023 | 1.005 (w=200-300) | 1.006 | 1.014 | 0.990 |
+
+`average` counts each window fitted once (windows longer than the history are
+not run); an earlier scoring that filled them with the whole series gave
+0.835 / 0.816 / 0.868 / 1.014.
 
 1. **Q1: yes for AutoARIMA, AutoETS and ARMA(1,1)**: windows of about 300-1000
    points beat the whole series by 6-8% overall. No single fixed window is
    significant after Holm correction (13 windows x 98 series). SES gains 1-2%.
 2. **Q2: yes**. Choosing the window at each origin from the previous 30 one-step
    errors (`rolling`) gains 12-13% for AutoARIMA and AutoETS (significant for
-   AutoETS). Averaging the forecasts over all 13 windows gains 9-12% and is the
-   most reliable (significant for both, ~70% of series better). Per-series choice
+   AutoETS). Averaging the forecasts over the windows gains 9-12% for AutoARIMA
+   and AutoETS and is the most reliable (significant for both, ~70% of series
+   better); for ARMA(1,1) it gains 5% (not significant). Per-series choice
    on a fixed validation block is weaker (11-12%, not significant). The oracle
    (best window per series, chosen on the test origins) gains 16-21%, so room
    remains.
@@ -111,6 +116,30 @@ geometric mean over 98 series; ratio = geometric mean of method / whole series.
 
 Order: get the window results first (above). If no window beats the whole series,
 the ideas below matter only for cost, not accuracy.
+
+### 0. New component: windowed forecasters in a SCUM-like ensemble (user, 2026-10-27)
+
+**PARKED (user, 2026-10-27):** focus first on better AutoETS/AutoARIMA by window
+selection, written up as a technical report (`reports/windowed-arima-ets.md`):
+(1) experiments that fitting all the data is generally worse, (2) an algorithm
+that chooses the window, i.e. up to the `Windower` wrapper.
+
+Goal: a stats ensemble like SCUM whose members are fitted to recent windows.
+Design sketch (not built):
+- a training-window wrapper, e.g. `TrainWindowForecaster(forecaster, window)`,
+  that fits and predicts with the last `window` points (0/None: whole series);
+- then the existing `EnsembleForecaster` (mean / median) composes them, so no new
+  ensemble class is needed: `EnsembleForecaster([TrainWindowForecaster(AutoETS(), w)
+  for w in windows], averaging_method="mean")` is the `average` method of the
+  experiment; a SCUM variant takes the median over members x windows, or the median
+  of the members' window averages.
+- `rolling` selection needs stored past one-step errors per window, so it is a
+  stateful forecaster, harder to express in fit/predict; averaging is simpler and
+  almost as good on LSSH-99.
+Offline test before building: run AutoCES and DOTM through `lssh99_window.py`
+(AutoETS and AutoARIMA are done), then form SCUM-like combinations from the stored
+forecasts (median over members of full-series forecasts should reproduce SCUM;
+check against the paper's SCUM run). Same on the M4 long series (`m4_window.py`).
 
 ### A. Choose the window without refitting the whole model
 
