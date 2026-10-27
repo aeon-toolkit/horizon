@@ -46,6 +46,32 @@ WINDOWS = [0, 100, 200, 500, 1000, 2000, 5000]
 TASK_TIMEOUT = 3600  # seconds per fit
 
 
+def _insample(res, train: np.ndarray) -> dict:
+    """In-sample fit scores over the residuals the fit returned (its last points).
+
+    ``mse`` and ``mae`` are per point, so comparable across window lengths;
+    ``rel_mae`` divides ``mae`` by the in-sample naive (last value) MAE over the
+    same points, so it is also free of the series' local scale. ETS models with
+    multiplicative error return relative residuals; they are converted to the
+    data's units by multiplying by the fitted values. For deseasonalised fits the
+    residuals are on the deseasonalised scale.
+    """
+    r = None if res.residuals is None else np.asarray(res.residuals, dtype=float).ravel()
+    if r is None or r.size < 2:
+        return dict(insample_mse=np.nan, insample_mae=np.nan, insample_rel_mae=np.nan,
+                    n_resid=0, aic=(res.fit_stats or {}).get("aic", np.nan))
+    if str(res.model).startswith("M") and res.fitted_values is not None:
+        fv = np.asarray(res.fitted_values, dtype=float).ravel()
+        r = r * fv[-r.size:]
+    r = r[np.isfinite(r)]
+    k = min(r.size, train.size - 1)
+    naive = np.mean(np.abs(np.diff(train[-(k + 1):])))
+    mae = float(np.mean(np.abs(r[-k:])))
+    return dict(insample_mse=float(np.mean(r[-k:] ** 2)), insample_mae=mae,
+                insample_rel_mae=mae / naive if naive > 0 else np.nan, n_resid=int(k),
+                aic=(res.fit_stats or {}).get("aic", np.nan))
+
+
 class _Timeout(Exception):
     pass
 
@@ -72,15 +98,17 @@ def _one(task):
         pred = float(np.ravel(res.forecast)[0]) if res.forecast is not None else np.nan
         model, error = res.model, getattr(res, "error", None)
         deseason = (res.params or {}).get("deseasonalised")
+        fit = _insample(res, train)
     except _Timeout:
         status, pred, model, deseason, error = f"timeout {TASK_TIMEOUT}s", np.nan, None, None, None
+        fit = {}
     finally:
         signal.alarm(0)
     return dict(forecaster=forecaster, problem=problem, origin=origin, window=window,
                 n_train=train.size, period=m, actual=float(y[cut]),
                 naive=float(y[cut - 1]), pred=pred, status=status,
                 fit_seconds=time.perf_counter() - start, model=model,
-                deseasonalised=deseason, error=str(error)[:300] if error else None)
+                deseasonalised=deseason, error=str(error)[:300] if error else None, **fit)
 
 
 def _warm_up(forecasters: list[str], deseasonalise: bool) -> None:

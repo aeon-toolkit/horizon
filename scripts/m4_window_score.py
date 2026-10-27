@@ -12,6 +12,9 @@ frequency, by training-length band, and overall. Methods:
   sMAPE + MASE over that frequency's series;
 - ``average``: the mean forecast over the windows fitted (each counted once);
 - ``median``: as ``average``, with the median at each step;
+- with in-sample fit scores in the results: the other schemes of
+  ``window_combine.combine`` over the windows with a holdout fit (out-of-sample
+  weights from the holdout MSE);
 - ``oracle``: per series, the window with the lowest test MAE (an upper bound,
   not a method).
 
@@ -35,6 +38,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "equivalence"))
 from m4_score import FREQS, M4_HOME, PERIOD, read_tsf_train, read_wide  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).parent))
+from window_combine import combine  # noqa: E402
 
 BANDS = [(500, 1000), (1000, 2000), (2000, 10**6)]
 
@@ -92,6 +98,17 @@ def score(rows: pd.DataFrame, truth: dict) -> pd.DataFrame:
         methods["validation"] = test[min(cand, key=lambda w: vmae[w])] if cand else test[0]
         methods["average"] = np.mean(np.stack(list(test.values)), axis=0)
         methods["median"] = np.median(np.stack(list(test.values)), axis=0)
+        if "insample_mse" in d.columns:
+            td = d[d.split == "test"].set_index("window")
+            ws = [w for w in windows if w in val.index]
+            if ws:
+                vmse = np.array([np.mean((val[w] - t["holdout"]) ** 2) for w in ws])
+                fc = combine(np.stack([test[w] for w in ws]),
+                             td.loc[ws, "insample_mse"].to_numpy(float),
+                             td.loc[ws, "insample_rel_mae"].to_numpy(float), vmse)
+                for k, v in fc.items():
+                    if k not in ("mean", "median"):
+                        methods[k] = v
         methods["oracle"] = test[min(order, key=lambda w: mae[w])]
         for name, pred in methods.items():
             s, q = smape_mase(pred, t["test"], t["scale"])
@@ -177,7 +194,9 @@ def main() -> None:
         t = t.rename_axis("method").reset_index()
         tables.append(t)
         order = (["full"] + sorted([m for m in t.method if m.startswith("w=")], key=lambda m: int(m[2:]))
-                 + ["validation", "global", "average", "median", "oracle", "Naive2"])
+                 + ["validation", "global", "average", "median", "trimmed", "inv_mse",
+                    "inv_rel_mae", "inv_rel_mae2", "akaike_n100", "best_insample",
+                    "inv_oos_mse", "median_best_half", "oracle", "Naive2"])
         with pd.option_context("display.float_format", "{:.3f}".format, "display.width", 200):
             print(f"\n== {f}  (series: {per[per.method == 'full'].groupby('frequency').size().to_dict()})")
             print(t.set_index("method").drop(columns="forecaster").reindex(order).to_string())

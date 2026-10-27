@@ -15,6 +15,11 @@ origin; per series, its test MAE is divided by the naive (last value) MAE.
 - ``average``: the mean of the forecasts from every window fitted (those
   shorter than the history, and the whole series), no selection;
 - ``median``: as ``average``, with the median of the forecasts.
+- with in-sample fit scores in the results (``lssh99_window.py`` records them):
+  the other schemes of ``window_combine.combine`` (trimmed mean, weights from
+  in-sample fit normalised for length, Akaike-style weights, best in-sample
+  window, weights from the previous 30 one-step errors, median of the better
+  half);
 - ``oracle``: per series, the window with the lowest test MAE (not a real
   method: an upper bound on what selecting one window per series can gain).
 
@@ -41,6 +46,7 @@ from scipy.stats import wilcoxon
 
 sys.path.insert(0, str(Path(__file__).parent))
 from lssh99_league import sub_daily  # noqa: E402
+from window_combine import combine  # noqa: E402
 
 VALIDATION = 30  # origins 0..29; the rest are test origins
 ROLL = 30  # rolling selection looks back this many origins
@@ -125,6 +131,8 @@ def score(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     med = raw.median(axis=1).sub(truth.actual).abs()
     methods["median"] = med[test].groupby("problem").mean()
     methods["oracle"] = test_mae.min(axis=1)
+    if "insample_mse" in rows.columns:
+        methods.update(combined(rows, raw, err, truth))
 
     rel = pd.DataFrame(methods).div(naive_test.where(naive_test > 0), axis=0)
     chosen = pd.concat([
@@ -135,6 +143,29 @@ def score(rows: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     ], axis=1).reindex(windows).fillna(0).astype(int)
     fit = rows.groupby("window").fit_seconds.median()
     return rel, chosen, fit
+
+
+def combined(rows, raw, err, truth) -> dict[str, pd.Series]:
+    """Test MAE per problem of each scheme in ``window_combine.combine``."""
+    ok = rows[(rows.status == "ok") & rows.pred.notna()]
+    mse = ok.pivot_table(index=["problem", "origin"], columns="window", values="insample_mse")
+    rel = ok.pivot_table(index=["problem", "origin"], columns="window", values="insample_rel_mae")
+    sq = err ** 2
+    out: dict[str, list] = {}
+    for (p, o), row in raw.iterrows():
+        if o < VALIDATION:
+            continue
+        ws = row.index[row.notna()]
+        past = sq.loc[p].loc[o - ROLL:o - 1, ws].mean().to_numpy()
+        fc = combine(row[ws].to_numpy()[:, None], mse.loc[(p, o), ws].to_numpy(),
+                     rel.loc[(p, o), ws].to_numpy(), past)
+        actual = truth.loc[(p, o), "actual"]
+        for k, v in fc.items():
+            if k in ("mean", "median"):
+                continue  # already scored as average / median
+            out.setdefault(k, []).append((p, abs(v[0] - actual)))
+    return {k: pd.DataFrame(v, columns=["problem", "e"]).groupby("problem").e.mean()
+            for k, v in out.items()}
 
 
 def summarise(rel: pd.DataFrame, fit: pd.Series) -> pd.DataFrame:

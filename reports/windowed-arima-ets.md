@@ -26,9 +26,91 @@ cheaper incremental updates (later work, plan part A).
 - Fitting to less data is also cheaper.
 - The cost of windowing is estimation variance: on a stationary series the whole
   series is the efficient choice. A good window balances the two.
-- Related work in econometrics on choosing or combining estimation windows under
-  structural change (references to check before citing): Pesaran and Timmermann
-  (2007); Pesaran and Pick (2011); Inoue, Jin and Rossi (2017).
+
+### 2.1 Related work (literature search 2026-10-27)
+
+Checked against abstracts and bibliographic records; full texts were not read,
+so verify details before citing.
+
+**Choosing or combining estimation windows (econometrics).** The idea is well
+established for regression and AR models of macroeconomic and financial series:
+
+- Pesaran and Timmermann (2007, J. Econometrics 137:134-161): the window trades
+  the bias of using pre-break data against the variance of a shorter sample;
+  they propose cross-validation to choose a single window, and weighting or
+  pooling of forecasts from windows of different lengths.
+- Pesaran and Pick (2011, JBES 29:307-318), "Forecast combination across
+  estimation windows": averaging one model's forecasts over windows lowers bias
+  and RMSFE for all but the smallest breaks (equity index futures). Applied to
+  SARIMA for monthly air travel by Jungmittag (2016, J. Forecasting 35:373-380):
+  averaged-window forecasts generally beat single windows. Assenmacher-Wesche and
+  Pesaran (Swiss VECX* models; NIER, SNB WP 2008-03): averaging over windows is at
+  least as effective as averaging over models, the two complement each other, and
+  alternative weighting schemes add little over equal weights.
+- Clark and McCracken (2009, Int. Econ. Rev. 50(2)): combining recursive
+  (expanding) and rolling forecasts is at least as accurate as either; the
+  expanding window is often hard to beat.
+- Inoue, Jin and Rossi (2017, J. Econometrics 196:55-67): choose the rolling
+  window by minimising estimated forecast loss, analogous to bandwidth selection.
+- Tian and Anderson (2014, IJF 30:161-175): weight windows by the probability
+  that each point is the most recent break (reversed-order CUSUM).
+- Down-weighting instead of a hard window: Pesaran, Pick and Pranovich (2013,
+  J. Econometrics 177:134-152) derive MSFE-optimal observation weights (close to
+  exponential under continuous breaks); Giraitis, Kapetanios and Price (2013,
+  J. Econometrics 177:153-170) choose the discount rate of rolling / exponentially
+  weighted estimators by cross-validation, on 97 US macro series.
+- Rossi and Inoue (2012, JBES 30:432-453): evaluation that is robust to the window,
+  since repeating tests over windows invites data snooping (relevant to how we
+  report fixed-window results).
+
+**Outside econometrics.**
+
+- Petersen et al. (2026, Br. J. Math. Stat. Psychol. 79:341-361): 21 training
+  windows for OLS and random forests on non-stationary experience-sampling data.
+  The simple average over windows and an ensemble super learner did best;
+  selecting a single window by cross-validation was poor; the expanding window was
+  best only when coefficients were stable. Close to our finding that averaging is
+  more reliable than per-series selection.
+- Hyndman and Athanasopoulos, FPP3, "Very long and very short time series":
+  "Most time series models do not work well for very long time series"; for
+  short-horizon forecasts "one simple approach is to throw away the earliest
+  observations and only fit a model to the most recent observations". Advice, no
+  method for choosing how many.
+- Concept drift (machine learning): ADWIN (Bifet and Gavalda 2007) adapts a window
+  online by detecting changes in the mean; aimed at drift detection, not forecast
+  accuracy. Cerqueira et al.'s arbitrated / dynamic ensembles weight forecasters
+  over time; different models, not windows.
+
+**Combination methods.**
+
+- The forecast combination puzzle (Stock and Watson 2004; Smith and Wallis 2009;
+  Claeskens et al., ~2016): estimated weights rarely beat equal weights because
+  of estimation error. This predicts that fit-based weights over windows will not
+  beat the plain mean or median by much.
+- Jose and Winkler (2008, IJF 24:163-169): trimmed (10-30%) and Winsorised means
+  slightly more accurate and more robust than the mean; supports the median /
+  trimmed mean over windows.
+- Kolassa (2011, IJF 27:238-251): Akaike weights over ETS models beat selection by
+  an information criterion (M1, M3), as in `smooth::es(model="CCC")`. Across
+  models on one sample; AIC is not comparable across windows of different length,
+  hence our per-point normalisation.
+- Bergmeir, Hyndman and Benitez (2016, IJF 32:303-312): bagged ETS (STL + block
+  bootstrap) beats ETS on M3; Petropoulos, Hyndman and Bergmeir attribute the gain
+  mainly to model uncertainty (different models selected per bootstrap series).
+  Window averaging likely gains partly the same way: AutoETS/AutoARIMA select
+  different models on different windows.
+
+**What appears to be new here** (no prior work found; absence of evidence only):
+
+- a large-scale evaluation of window selection and averaging for *automatic*
+  ETS and ARIMA (model selection on each window) on benchmark long series
+  (LSSH-99, the long M4 series), rather than fixed regression/AR models on macro
+  series;
+- the median across windows (prior work averages with the mean or weights);
+- the interaction with M4-style deseasonalisation and seasonal minimum lengths
+  (short windows switch the seasonality test off);
+- a reusable wrapper in a toolkit: no forecasting library found offers
+  combination across estimation windows as a component.
 
 ## 3. Part 1: is it better not to fit all the data?
 

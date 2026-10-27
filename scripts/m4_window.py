@@ -41,7 +41,7 @@ import pandas as pd  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "equivalence"))
-from lssh99_window import _warm_up  # noqa: E402
+from lssh99_window import _insample, _warm_up  # noqa: E402
 from m4_score import FREQS, PERIOD, read_tsf_train  # noqa: E402
 
 HORIZON = dict(zip(FREQS, [6, 8, 18, 13, 14, 48]))
@@ -71,7 +71,8 @@ def _one(task):
                 n_train=train.size, status=res.status,
                 fit_seconds=time.perf_counter() - start, model=res.model,
                 deseasonalised=(res.params or {}).get("deseasonalised"),
-                pred=json.dumps(pred), error=str(getattr(res, "error", "") or "")[:300])
+                pred=json.dumps(pred), error=str(getattr(res, "error", "") or "")[:300],
+                **_insample(res, train))
 
 
 def main() -> None:
