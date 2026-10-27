@@ -67,7 +67,7 @@ a wrapper in the experiment script (`StandardisedForecaster`): standardise
 first differences of the last 1,000 points, fit once, forecast recursively
 (N-BEATS series-to-series). No aeon code was changed.
 
-## aaltd: 100 long series, 30 rolling origins, one-step forecasts
+## LSSH-99 (the aaltd collection): 99 long series, 30 rolling origins, one-step forecasts
 
 ### Protocol
 
