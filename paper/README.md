@@ -4,7 +4,8 @@ Section 5 (Benchmarking and evaluation) of the aeon forecasting paper. Every
 number in it comes from aeon commit `8585c7bf` (branch `bench/arima-ets`, a
 clean worktree; no aeon code changed). The paper calls this aeon 1.7: the
 forecasting code at 8585c7bf ships unchanged in that release. The results are fixed: runs started
-after 2026-10-27 are not part of the paper.
+after 2026-10-27 are not part of the paper, except DrCIF on values (LSSH-99,
+added 2026-10-29 at the user's request; `scripts/levels_regressors.py`).
 
 League tables, every forecaster run:
 
@@ -35,7 +36,7 @@ cache, and TensorFlow's CUDA libraries.
 |---|---|---|
 | 5.1 Simulated series | `paper/run_simulated.sh` | about a day; timing steps need an idle machine |
 | 5.2 M4 | `paper/run_m4.sh cpu`, `paper/run_m4.sh gpu K F` | ~100 CPU-hours (TVP ~70 of them); several GPU-days per deep learner |
-| 5.3 LSSH-99 | `paper/run_lssh99.sh cpu`, `paper/run_lssh99.sh gpu K` (K = 0-3) | ~600 CPU-hours (about a day on 32 cores; DrCIF 190, CIF 100); ~110 GPU-worker-hours for the deep learners |
+| 5.3 LSSH-99 | `paper/run_lssh99.sh cpu`, `paper/run_lssh99.sh gpu K` (K = 0-3) | ~730 CPU-hours (about a day on 32 cores; DrCIF (Δy) 190, DrCIF on values 130, CIF 100); ~110 GPU-worker-hours for the deep learners |
 
 All runs resume where they stopped. Then run `paper/make_tables.sh`.
 
@@ -92,7 +93,9 @@ once. As shipped they failed a 600-series pilot
 | Scores per series | `results/aeon-8585c7bf/aaltd/{per_problem,summary}.csv` | `scripts/aaltd_score.py --forecasters paper/lssh99_forecasters.txt` |
 
 Forecasts: `scripts/aaltd_experiments.py` (30 rolling one-step refits per
-series), rows in `$RESULTS/aaltd-8585c7bf/{cpu,dl-gpu0..3}/<F>.csv`. The
+series), rows in `$RESULTS/aaltd-8585c7bf/{cpu,dl-gpu0..3}/<F>.csv`. DrCIF on values
+(`DrCIFLevels`) is registered by `scripts/levels_regressors.py`, a wrapper around
+`aaltd_experiments.py`, and its rows are in `$RESULTS/aaltd-8585c7bf-levels/cpu/`. The
 forecaster set is fixed in `paper/lssh99_forecasters.txt`. The scorer refuses
 to run if any listed forecaster has fits missing, and ignores everything else
 in the results directory: runs started later (the deep-learning (Δy)
