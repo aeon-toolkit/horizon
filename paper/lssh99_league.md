@@ -13,7 +13,7 @@ forecast is exact over the last 30 points, so relative MAE is undefined there
 (its MASE and rank are still counted, over 99 series).
 
 Δy: a time series regressor on windows of 100 values predicting the next change.
-Δ: the model on (standardised) first differences. levels: the model on the raw
+Δ: the model on (standardised) first differences. Unmarked: the model on the raw
 values. †: input standardised and differenced, last 1,000 points, fitted once.
 Non-seasonal and machine learning forecasters are deseasonalised as on M4.
 
@@ -28,11 +28,11 @@ see `paper/README.md`.
 | 4 | CIF (Δy) | Machine learning | 0.571 | 1.014 | 0.821 | 1.54 | 14.1 | 85 |
 | 5 | Ridge (Δ) | Machine learning | 0.690 | 0.928 | 0.833 | 1.56 | 13.8 | 0.008 |
 | 6 | SCUM | Statistical | 0.729 | 0.918 | 0.843 | 1.44 | 11.3 | 1.23 |
-| 7 | Random forest (levels) | Machine learning | 0.525 | 1.113 | 0.845 | 1.67 | 14.9 | 24 |
+| 7 | Random forest | Machine learning | 0.525 | 1.113 | 0.845 | 1.67 | 14.9 | 24 |
 | 8 | TSF (Δy) | Machine learning | 0.566 | 1.076 | 0.850 | 1.61 | 15.1 | 14 |
 | 9 | SETAR (Δ) | Machine learning | 0.786 | 0.955 | 0.889 | 1.47 | 13.3 | 0.26 |
 | 10 | DeepAR† | Deep learning | 0.773 | 0.977 | 0.896 | 1.52 | 13.1 | 48 |
-| 11 | SETAR (levels) | Machine learning | 0.749 | 0.997 | 0.898 | 1.52 | 13.7 | 0.76 |
+| 11 | SETAR | Machine learning | 0.749 | 0.997 | 0.898 | 1.52 | 13.7 | 0.76 |
 | 12 | AutoARIMA | Statistical | 0.828 | 0.975 | 0.918 | 1.51 | 13.0 | 0.34 |
 | 13 | TAR | Statistical | 0.790 | 1.004 | 0.924 | 1.55 | – | 0.002 |
 | 14 | AutoCES | Statistical | 0.826 | 0.986 | 0.924 | 1.60 | 16.6 | 0.073 |
@@ -44,7 +44,7 @@ see `paper/README.md`.
 | 20 | DOTM | Statistical | 0.867 | 1.032 | 0.968 | 1.60 | 15.4 | 0.037 |
 | 21 | N-BEATS† | Deep learning | 0.768 | 1.145 | 0.989 | 1.72 | 19.0 | 39 |
 | 22 | Theta | Statistical | 0.917 | 1.035 | 0.990 | 1.59 | 14.8 | 0.002 |
-| 23 | Ridge (levels) | Machine learning | 0.597 | 1.345 | 0.998 | 3.07 | 18.0 | 0.086 |
+| 23 | Ridge | Machine learning | 0.597 | 1.345 | 0.998 | 3.07 | 18.0 | 0.086 |
 | 24 | **Naive** | Baseline | 1.000 | 1.000 | 1.000 | 1.61 | 14.5 | <0.001 |
 | 25 | ETS | Statistical | 0.993 | 1.040 | 1.023 | 1.62 | 15.1 | 0.013 |
 | 26 | CES | Statistical | 1.006 | 1.042 | 1.028 | 1.69 | 17.4 | 0.005 |
@@ -52,8 +52,8 @@ see `paper/README.md`.
 | 28 | Summary (Δy) | Machine learning | 0.947 | 1.233 | 1.119 | 1.99 | 23.1 | 5.06 |
 | 29 | SETARTree (Δ) | Machine learning | 1.388 | 1.916 | 1.702 | 4.92 | 24.2 | 0.21 |
 | 30 | SETARForest (Δ) | Machine learning | 1.671 | 1.737 | 1.713 | 10.51 | 24.4 | 2.44 |
-| 31 | SETARForest (levels) | Machine learning | 3.516 | 1.322 | 1.894 | 28.94 | 22.2 | 5.98 |
-| 32 | SETARTree (levels) | Machine learning | 3.505 | 1.680 | 2.201 | 12.50 | 22.2 | 0.61 |
+| 31 | SETARForest | Machine learning | 3.516 | 1.322 | 1.894 | 28.94 | 22.2 | 5.98 |
+| 32 | SETARTree | Machine learning | 3.505 | 1.680 | 2.201 | 12.50 | 22.2 | 0.61 |
 | 33 | Seasonal naive | Baseline | 1.885 | 2.734 | 2.385 | 6.21 | 27.3 | <0.001 |
 
 ## Failures
