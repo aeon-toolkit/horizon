@@ -5,6 +5,11 @@ horizon session keeps the aeon paper, the LSSH-99/M4 benchmark runs and the
 background GPU jobs; this note is everything needed to carry on the window work
 without them.
 
+**Moved (2026-10-29, commit ccd3290):** `papers/windowed-ets-arima/` is no longer in
+horizon. The paper is its own Overleaf project (`~/Papers/arxiv-arima`); its tools and
+the window work are in `~/Code/aeon-forecasting/local/windows`. Paths below under
+`papers/` refer to the copy at commit 21b2daa.
+
 ## 1. The question
 
 Statistical forecasters are fitted to the whole history. On long series (LSSH-99:

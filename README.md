@@ -3,19 +3,33 @@
 Experiments comparing aeon's statistical forecasters with other forecasting
 toolkits, and the evaluation behind changes proposed to aeon.
 
-The current experiments compare automatic ARIMA and ETS model selection in
-[aeon](https://github.com/aeon-toolkit/aeon) with
-[statsforecast](https://github.com/Nixtla/statsforecast),
-[sktime](https://github.com/sktime/sktime),
-[skforecast](https://github.com/skforecast/skforecast),
-[pmdarima](https://github.com/alkaline-ml/pmdarima) and
-[statsmodels](https://github.com/statsmodels/statsmodels), on series simulated
-from known processes. They ask two questions:
+It has four parts:
 
-1. **Accuracy.** Are aeon's forecasts significantly different from the other
-   toolkits'? Paired Wilcoxon signed-rank tests on per-series MASE, Holm
-   corrected, plus critical difference diagrams.
-2. **Speed.** How does the time to fit and forecast grow with series length?
+1. **Simulated benchmark** (`src/horizon`, `python -m horizon`). aeon's automatic
+   ARIMA and ETS model selection compared with
+   [statsforecast](https://github.com/Nixtla/statsforecast),
+   [sktime](https://github.com/sktime/sktime),
+   [skforecast](https://github.com/skforecast/skforecast),
+   [pmdarima](https://github.com/alkaline-ml/pmdarima),
+   [statsmodels](https://github.com/statsmodels/statsmodels) and
+   [smooth](https://github.com/config-i1/smooth) on series simulated from known
+   processes. It asks two questions:
+   - *Accuracy:* are aeon's forecasts significantly different from the other
+     toolkits'? This uses paired Wilcoxon signed-rank tests on per-series MASE,
+     Holm corrected, plus critical difference diagrams.
+   - *Speed:* how does the time to fit and forecast grow with series length?
+2. **Equivalence** (`equivalence/`). The evidence that aeon's AutoETS,
+   AutoARIMA and SCUM match the published M4 forecasts of R's `ets`,
+   `auto.arima` and entry 036, with run times.
+3. **The aeon paper, Section 5** (`paper/`). How to reproduce every table and
+   figure, plus the [M4](paper/m4_league.md) and [LSSH-99](paper/lssh99_league.md)
+   league tables covering every forecaster run.
+4. **Studies and notes.**
+   - `studies/` holds the optimiser studies behind the ARIMA/ETS fixes.
+   - `notes/` holds exploratory analyses, such as DrCIF and deseasonalising, and
+     training windows for ARIMA/ETS.
+   - The windowed ARIMA/ETS paper has moved to its own project; see
+     `notes/handover-windowed-arima-ets.md`.
 
 ## Install
 
@@ -59,18 +73,29 @@ Notes for comparable numbers:
 ## Layout
 
 ```
-src/horizon/
+src/horizon/       the simulated benchmark package (python -m horizon)
   simulate.py      generating processes (ARIMA and ETS) and their true models
   adapters.py      one adapter per toolkit and mode, with the fairness notes
   experiments.py   accuracy and timing experiments
   analyse.py       summaries, significance tests, plots for one run
   compare.py       comparisons between runs
   cli.py           python -m horizon
-tests/             smoke tests (pytest)
-results/<run>/     one directory per run and mode, see below
+tests/             smoke tests and a check that the LSSH-99 tables rebuild exactly (pytest)
+results/<run>/     one directory per aeon version and mode, see below
+equivalence/       aeon vs R and the published M4 forecasts; front page README.md
+paper/             Section 5 of the aeon paper: README.md (what builds what),
+                   run_*.sh, make_tables.sh, league tables, table bodies
+scripts/           M4 and LSSH-99 experiment and scoring scripts used by paper/
+                   (m_comp_experiments.py, aaltd_experiments.py, *_league.py, ...)
+                   and exploratory wrappers (window, DrCIF, levels)
+studies/           optimiser studies behind the ARIMA/ETS fixes
 reports/           written comparisons
-paper/             Section 5 of the aeon paper: how to reproduce it, M4 and LSSH-99 league tables
+notes/             working notes and handovers
 ```
+
+Large raw outputs (per-series forecasts for M4 and LSSH-99) live outside the
+repository under `/local/ajb2u23/Results/Forecasting`; `paper/README.md` says
+which committed file comes from which.
 
 Each result directory holds `run_info.json`, the raw per-series
 `accuracy.csv.gz` and `timing.csv`, the derived `accuracy_summary.csv`,
