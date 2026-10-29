@@ -156,7 +156,7 @@ def main() -> None:
 
     runs, provenance = {}, {}
     paths = {}
-    for aeon_name in set(PAIRS) | set(RUN_PAIRS):
+    for aeon_name in sorted(set(PAIRS) | set(RUN_PAIRS)):  # stable run_info.json
         path = args.results / "aeon" / aeon_name / f"M4_{aeon_name}_Test.csv"
         if path.exists():
             paths[aeon_name] = path

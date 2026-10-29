@@ -282,7 +282,8 @@ def timing_figure(summary: pd.DataFrame, panels, path: Path) -> None:
                frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.02))
     fig.tight_layout(rect=(0, 0.11, 1, 1))
     for ext in ["pdf", "png"]:
-        fig.savefig(path.with_suffix(f".{ext}"), dpi=200, bbox_inches="tight")
+        fig.savefig(path.with_suffix(f".{ext}"), dpi=200, bbox_inches="tight",
+                    metadata={"CreationDate": None} if ext == "pdf" else None)
     plt.close(fig)
 
 
