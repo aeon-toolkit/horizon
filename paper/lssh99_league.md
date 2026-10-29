@@ -4,7 +4,7 @@ Every forecaster run on LSSH-99 for the aeon paper (Section 5.3), aeon commit
 8585c7bf. Each forecaster is refitted at each of the last 30 points of each
 series and forecasts one step ahead (3,000 fits). **Rel. MAE**: MAE relative
 to the naive (last value) forecast, geometric mean over series (below 1:
-better than naive). **Mean rank**: by MAE, among the 32 forecasters that completed
+better than naive). **Mean rank**: by MAE, among the 33 forecasters that completed
 every series (1 is best). **Fit**: median seconds per refit, one thread.
 
 Series: 36 sub-daily (half-hourly, hourly, 10-minute, minutely), 62 daily or slower,
@@ -22,39 +22,40 @@ see `paper/README.md`.
 
 | # | Forecaster | Group | Sub-daily | Daily or slower | All | Mean MASE | Mean rank | Fit (s) |
 |---:|---|---|---:|---:|---:|---:|---:|---:|
-| 1 | DrCIF (Δy) | Machine learning | 0.549 | 0.958 | 0.781 | 1.48 | 11.9 | 174 |
-| 2 | Random forest (Δy) | Machine learning | 0.494 | 1.039 | 0.791 | 1.67 | 12.2 | 18 |
-| 3 | TCN† | Deep learning | 0.660 | 0.901 | 0.804 | 1.36 | 11.2 | 42 |
-| 4 | CIF (Δy) | Machine learning | 0.571 | 1.014 | 0.821 | 1.54 | 14.1 | 85 |
-| 5 | Ridge (Δ) | Machine learning | 0.690 | 0.928 | 0.833 | 1.56 | 13.8 | 0.008 |
-| 6 | SCUM | Statistical | 0.729 | 0.918 | 0.843 | 1.44 | 11.3 | 1.23 |
-| 7 | Random forest | Machine learning | 0.525 | 1.113 | 0.845 | 1.67 | 14.9 | 24 |
-| 8 | TSF (Δy) | Machine learning | 0.566 | 1.076 | 0.850 | 1.61 | 15.1 | 14 |
-| 9 | SETAR (Δ) | Machine learning | 0.786 | 0.955 | 0.889 | 1.47 | 13.3 | 0.26 |
-| 10 | DeepAR† | Deep learning | 0.773 | 0.977 | 0.896 | 1.52 | 13.1 | 48 |
-| 11 | SETAR | Machine learning | 0.749 | 0.997 | 0.898 | 1.52 | 13.7 | 0.76 |
-| 12 | AutoARIMA | Statistical | 0.828 | 0.975 | 0.918 | 1.51 | 13.0 | 0.34 |
+| 1 | DrCIF (Δy) | Machine learning | 0.549 | 0.958 | 0.781 | 1.48 | 12.1 | 174 |
+| 2 | Random forest (Δy) | Machine learning | 0.494 | 1.039 | 0.791 | 1.67 | 12.4 | 18 |
+| 3 | TCN† | Deep learning | 0.660 | 0.901 | 0.804 | 1.36 | 11.4 | 42 |
+| 4 | CIF (Δy) | Machine learning | 0.571 | 1.014 | 0.821 | 1.54 | 14.3 | 85 |
+| 5 | Ridge (Δ) | Machine learning | 0.690 | 0.928 | 0.833 | 1.56 | 14.0 | 0.008 |
+| 6 | SCUM | Statistical | 0.729 | 0.918 | 0.843 | 1.44 | 11.6 | 1.23 |
+| 7 | Random forest | Machine learning | 0.525 | 1.113 | 0.845 | 1.67 | 15.1 | 24 |
+| 8 | TSF (Δy) | Machine learning | 0.566 | 1.076 | 0.850 | 1.61 | 15.4 | 14 |
+| 9 | SETAR (Δ) | Machine learning | 0.786 | 0.955 | 0.889 | 1.47 | 13.6 | 0.26 |
+| 10 | DeepAR† | Deep learning | 0.773 | 0.977 | 0.896 | 1.52 | 13.4 | 48 |
+| 11 | SETAR | Machine learning | 0.749 | 0.997 | 0.898 | 1.52 | 14.0 | 0.76 |
+| 12 | AutoARIMA | Statistical | 0.828 | 0.975 | 0.918 | 1.51 | 13.4 | 0.34 |
 | 13 | TAR | Statistical | 0.790 | 1.004 | 0.924 | 1.55 | – | 0.002 |
-| 14 | AutoCES | Statistical | 0.826 | 0.986 | 0.924 | 1.60 | 16.6 | 0.073 |
-| 15 | AutoTAR | Statistical | 0.796 | 1.010 | 0.925 | 1.54 | 14.6 | 0.052 |
-| 16 | AutoETS | Statistical | 0.868 | 0.964 | 0.927 | 1.58 | 16.1 | 0.52 |
-| 17 | ARIMA | Statistical | 0.858 | 0.978 | 0.932 | 1.53 | 12.8 | 0.021 |
-| 18 | RISE (Δy) | Machine learning | 0.743 | 1.067 | 0.934 | 1.63 | 15.9 | 37 |
-| 19 | Catch22 (Δy) | Machine learning | 0.720 | 1.147 | 0.967 | 1.78 | 18.3 | 23 |
-| 20 | DOTM | Statistical | 0.867 | 1.032 | 0.968 | 1.60 | 15.4 | 0.037 |
-| 21 | N-BEATS† | Deep learning | 0.768 | 1.145 | 0.989 | 1.72 | 19.0 | 39 |
-| 22 | Theta | Statistical | 0.917 | 1.035 | 0.990 | 1.59 | 14.8 | 0.002 |
-| 23 | Ridge | Machine learning | 0.597 | 1.345 | 0.998 | 3.07 | 18.0 | 0.086 |
-| 24 | **Naive** | Baseline | 1.000 | 1.000 | 1.000 | 1.61 | 14.5 | <0.001 |
-| 25 | ETS | Statistical | 0.993 | 1.040 | 1.023 | 1.62 | 15.1 | 0.013 |
-| 26 | CES | Statistical | 1.006 | 1.042 | 1.028 | 1.69 | 17.4 | 0.005 |
-| 27 | TVP | Statistical | 0.971 | 1.116 | 1.060 | 1.84 | 18.4 | 46 |
-| 28 | Summary (Δy) | Machine learning | 0.947 | 1.233 | 1.119 | 1.99 | 23.1 | 5.06 |
-| 29 | SETARTree (Δ) | Machine learning | 1.388 | 1.916 | 1.702 | 4.92 | 24.2 | 0.21 |
-| 30 | SETARForest (Δ) | Machine learning | 1.671 | 1.737 | 1.713 | 10.51 | 24.4 | 2.44 |
-| 31 | SETARForest | Machine learning | 3.516 | 1.322 | 1.894 | 28.94 | 22.2 | 5.98 |
-| 32 | SETARTree | Machine learning | 3.505 | 1.680 | 2.201 | 12.50 | 22.2 | 0.61 |
-| 33 | Seasonal naive | Baseline | 1.885 | 2.734 | 2.385 | 6.21 | 27.3 | <0.001 |
+| 14 | AutoCES | Statistical | 0.826 | 0.986 | 0.924 | 1.60 | 16.9 | 0.073 |
+| 15 | AutoTAR | Statistical | 0.796 | 1.010 | 0.925 | 1.54 | 14.9 | 0.052 |
+| 16 | AutoETS | Statistical | 0.868 | 0.964 | 0.927 | 1.58 | 16.4 | 0.52 |
+| 17 | ARIMA | Statistical | 0.858 | 0.978 | 0.932 | 1.53 | 13.2 | 0.021 |
+| 18 | RISE (Δy) | Machine learning | 0.743 | 1.067 | 0.934 | 1.63 | 16.3 | 37 |
+| 19 | Catch22 (Δy) | Machine learning | 0.720 | 1.147 | 0.967 | 1.78 | 18.7 | 23 |
+| 20 | DOTM | Statistical | 0.867 | 1.032 | 0.968 | 1.60 | 15.7 | 0.037 |
+| 21 | N-BEATS† | Deep learning | 0.768 | 1.145 | 0.989 | 1.72 | 19.5 | 39 |
+| 22 | Theta | Statistical | 0.917 | 1.035 | 0.990 | 1.59 | 15.2 | 0.002 |
+| 23 | Ridge | Machine learning | 0.597 | 1.345 | 0.998 | 3.07 | 18.5 | 0.086 |
+| 24 | **Naive** | Baseline | 1.000 | 1.000 | 1.000 | 1.61 | 14.9 | <0.001 |
+| 25 | ETS | Statistical | 0.993 | 1.040 | 1.023 | 1.62 | 15.5 | 0.013 |
+| 26 | CES | Statistical | 1.006 | 1.042 | 1.028 | 1.69 | 17.8 | 0.005 |
+| 27 | TVP | Statistical | 0.971 | 1.116 | 1.060 | 1.84 | 18.8 | 46 |
+| 28 | DrCIF | Machine learning | 0.721 | 1.378 | 1.086 | 2.16 | 20.8 | 83 |
+| 29 | Summary (Δy) | Machine learning | 0.947 | 1.233 | 1.119 | 1.99 | 23.6 | 5.06 |
+| 30 | SETARTree (Δ) | Machine learning | 1.388 | 1.916 | 1.702 | 4.92 | 24.8 | 0.21 |
+| 31 | SETARForest (Δ) | Machine learning | 1.671 | 1.737 | 1.713 | 10.51 | 25.0 | 2.44 |
+| 32 | SETARForest | Machine learning | 3.516 | 1.322 | 1.894 | 28.94 | 22.8 | 5.98 |
+| 33 | SETARTree | Machine learning | 3.505 | 1.680 | 2.201 | 12.50 | 22.8 | 0.61 |
+| 34 | Seasonal naive | Baseline | 1.885 | 2.734 | 2.385 | 6.21 | 28.2 | <0.001 |
 
 ## Failures
 

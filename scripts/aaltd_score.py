@@ -30,14 +30,14 @@ from aaltd_experiments import load
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--results", type=Path, required=True)
+    parser.add_argument("--results", type=Path, nargs="+", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--forecasters", type=Path,
                         help="file listing the forecasters to score, one per line")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
-    rows = pd.concat([pd.read_csv(p) for p in sorted(args.results.rglob("*.csv"))],
+    rows = pd.concat([pd.read_csv(p) for d in args.results for p in sorted(d.rglob("*.csv"))],
                      ignore_index=True)
     rows = rows.drop_duplicates(["forecaster", "problem", "origin"], keep="last")
     origins = rows.origin.max() + 1

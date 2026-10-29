@@ -9,7 +9,7 @@ after 2026-10-27 are not part of the paper.
 League tables, every forecaster run:
 
 - [M4 league table](m4_league.md) (Section 5.2, 26 entries)
-- [LSSH-99 league table](lssh99_league.md) (Section 5.3, 33 forecasters)
+- [LSSH-99 league table](lssh99_league.md) (Section 5.3, 34 forecasters)
 
 ## Rebuilding the tables from stored results
 

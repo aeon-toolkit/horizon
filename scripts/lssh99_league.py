@@ -43,6 +43,7 @@ NAMES = {
     "AutoTAR": ("AutoTAR", "Statistical"),
     "TVP": ("TVP", "Statistical"),
     "DrCIFDeltaY": ("DrCIF (Δy)", "Machine learning"),
+    "DrCIFLevels": ("DrCIF", "Machine learning"),
     "CIFDeltaY": ("CIF (Δy)", "Machine learning"),
     "TSFDeltaY": ("TSF (Δy)", "Machine learning"),
     "RISEDeltaY": ("RISE (Δy)", "Machine learning"),
@@ -65,8 +66,8 @@ NAMES = {
     "SeasonalNaive": ("Seasonal naive", "Baseline"),
 }
 # the paper's table: machine/deep learning block, then statistical block
-PAPER = [["DrCIFDeltaY", "RandFDeltaY", "TCNDiff", "CIFDeltaY", "RidgeDiff", "TSFDeltaY",
-          "DeepARDiff", "NBeatsDiff", "RegressionForecaster"],
+PAPER = [["DrCIFDeltaY", "RandFDeltaY", "TCNDiff", "RidgeDiff", "RandF", "TSFDeltaY",
+          "DeepARDiff", "NBeatsDiff", "RegressionForecaster", "DrCIFLevels"],
          ["SCUM", "AutoARIMA", "AutoETS", "Theta"]]
 TEX_NAMES = {"SCUM": r"\texttt{SCUM}", "AutoARIMA": r"\texttt{AutoARIMA}",
              "AutoETS": r"\texttt{AutoETS}", "Theta": r"\texttt{Theta}",

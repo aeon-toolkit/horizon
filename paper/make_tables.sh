@@ -28,6 +28,6 @@ $PY equivalence/paper.py --simulated $E/simulated --significance $R \
 $PY -W ignore scripts/m4_league.py --out $R/m4 --paper paper
 
 # 5.3 LSSH-99: score the fixed forecaster set (raw), then the league and tab:lssh
-(cd scripts && $PY aaltd_score.py --results $RESULTS/aaltd-8585c7bf \
+(cd scripts && $PY aaltd_score.py --results $RESULTS/aaltd-8585c7bf $RESULTS/aaltd-8585c7bf-levels \
     --forecasters ../paper/lssh99_forecasters.txt --out ../$R/aaltd)
 $PY scripts/lssh99_league.py $R/aaltd --paper paper
