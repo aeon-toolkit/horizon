@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-21T10:32:46",
+  "command": "python -m horizon sweep --mode auto --out results/aeon-fix-439ed8bc/sweep-auto --only timing",
+  "aeon": {
+    "version": "1.6.0",
+    "path": "/tmp/claude-448101112/-home-ajb2u23-Code-aeon/62731451-08e8-4fbd-bffd-8741573ef87d/scratchpad/aeon-439ed8bc/aeon",
+    "git_commit": "439ed8bcdcae491156878544f74cc897f836db46",
+    "git_branch": "HEAD",
+    "git_dirty": false
+  },
+  "packages": {
+    "aeon": "1.6.0",
+    "statsforecast": "2.1.1",
+    "sktime": "1.2.0",
+    "skforecast": "0.26.0",
+    "pmdarima": "2.1.1",
+    "statsmodels": "0.15.0"
+  },
+  "python": "3.11.17",
+  "platform": "Linux-5.14.0-687.47.1.el9_8.x86_64-x86_64-with-glibc2.34",
+  "threads": "1",
+  "numba_cache_dir": "/tmp/claude-448101112/-home-ajb2u23-Code-aeon/62731451-08e8-4fbd-bffd-8741573ef87d/scratchpad/nbsweep.jBC6"
+}
