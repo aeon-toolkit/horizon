@@ -1,0 +1,28 @@
+% Compact table for the paper: accuracy and speed of aeon Theta, DOTM and
+% AutoCES against reference implementations. Values from table_other_stats.tex
+% and table_other_timing.tex (aeon 8585c7bf). Needs booktabs.
+\begin{table}[t]
+\centering
+\caption{aeon's \texttt{Theta}, \texttt{DOTM} and \texttt{AutoCES} against
+reference implementations. Accuracy: geometric mean over series of the MASE
+ratio aeon\,/\,reference (below 1: aeon more accurate) on simulated series
+(12 processes $\times$ 100 series, lengths 100 and 500) and on all 100{,}000 M4
+series; every ratio is equivalent within a 5\% margin (TOST). $^{+}$/$^{-}$: a
+Wilcoxon signed-rank test (Holm-corrected) finds aeon / the reference more
+accurate. Speed-up: reference time\,/\,aeon time to fit and forecast one series,
+single-threaded, at series length $n$.}
+\label{tab:other_stats}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llcccccc}
+\toprule
+ & & \multicolumn{3}{c}{MASE ratio} & \multicolumn{3}{c}{Speed-up} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+aeon & Reference & $n{=}100$ & $n{=}500$ & M4 & $n{=}100$ & $n{=}10^3$ & $n{=}10^4$ \\
+\midrule
+Theta   & statsforecast & 0.999$^{+}$ & 0.998$^{+}$ & 1.000 & 1.9  & 21 & 481 \\
+DOTM    & statsforecast & 1.002       & 1.001       & 0.990 & 3.0  & 7.8 & 69 \\
+AutoCES & statsforecast & 1.000       & 1.000       & 1.000 & 1.2  & 2.3  & 3.0 \\
+AutoCES & smooth        & 1.001$^{-}$ & 1.004$^{-}$ & 1.000 & 31 & 57 & 66 \\
+\bottomrule
+\end{tabular}
+\end{table}

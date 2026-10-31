@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-22T10:15:35",
+  "command": "python -m horizon run --mode fixed --toolkits smooth --out results/aeon-8585c7bf-smooth/fixed",
+  "aeon": {
+    "version": "1.6.0",
+    "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+    "git_commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+    "git_branch": "bench/arima-ets",
+    "git_dirty": false
+  },
+  "packages": {
+    "aeon": "1.6.0",
+    "statsforecast": "2.1.1",
+    "sktime": "1.2.0",
+    "skforecast": "0.26.0",
+    "pmdarima": "2.1.1",
+    "statsmodels": "0.15.0",
+    "smooth": "1.2.0"
+  },
+  "python": "3.11.17",
+  "platform": "Linux-5.14.0-687.47.1.el9_8.x86_64-x86_64-with-glibc2.34",
+  "threads": "1",
+  "numba_cache_dir": "/home/ajb2u23/Code/horizon/scratch/nb-smooth.NzsD"
+}

@@ -19,5 +19,13 @@
   "python": "3.11.17",
   "platform": "Linux-5.14.0-687.47.1.el9_8.x86_64-x86_64-with-glibc2.34",
   "threads": "1",
-  "numba_cache_dir": "/home/ajb2u23/Code/horizon/scratch/nb-sim-8585.OBbu"
+  "numba_cache_dir": "/home/ajb2u23/Code/horizon/scratch/nb-sim-8585.OBbu",
+  "refills": [
+    {
+      "date": "2026-10-22",
+      "toolkit": "smooth 1.2.0",
+      "reason": "added toolkit; run in results/aeon-8585c7bf-smooth/fixed (same seeds) and merged",
+      "command": "python -m horizon run --mode fixed --toolkits smooth --out results/aeon-8585c7bf-smooth/fixed"
+    }
+  ]
 }

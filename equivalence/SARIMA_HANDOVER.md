@@ -7,12 +7,10 @@ smoke test, which proves the harness runs, not that either is equivalent.
 
 ## What to test
 
-- aeon: branch `ajb/sarima`. `SARIMA` is in pushed commit `c5062a537`, but
-  **`AutoSARIMA` is uncommitted on the development machine. Commit and push it
-  first.** The run scripts refuse a dirty checkout.
-- Harness: **uncommitted on the development machine, so commit or copy it first**:
-  - new: `sarima.py`, `sarima_refs.R`, `run_sarima.sh` and this file;
-  - modified: `m4.py` and `../scripts/m_comp_experiments.py`.
+- aeon: branch `ajb/sarima`, commit `c5615dd85`, with `SARIMA` and `AutoSARIMA`,
+  pushed to origin. The run scripts refuse a dirty checkout.
+- Harness: `sarima.py`, `sarima_refs.R`, `run_sarima.sh`, `m4.py` and
+  `../scripts/m_comp_experiments.py` on horizon `main`.
 
 ## Pass criteria (from the paper)
 
@@ -149,7 +147,7 @@ monthly or quarterly are behind R.
 
 ## State of the code
 
-Checked on the development machine's uncommitted tree, with `AutoSARIMA`:
+Checked on the development machine, with `AutoSARIMA`:
 
 - All of `aeon/forecasting`: 548 passed with a fresh numba cache.
 - `check_estimator` on `SARIMA` and `AutoSARIMA`: 19 checks each, no failures.

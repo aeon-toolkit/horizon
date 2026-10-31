@@ -1,0 +1,68 @@
+% Benchmarking and evaluation: forecasting evaluation protocols (one-page version).
+% Long version: evaluation_protocols_long.tex. References: evaluation_protocols.bib.
+% Numbers: aeon 8585c7bf, results/aeon-8585c7bf/{m4,aaltd} in the horizon repo.
+% Table labels (tab:m4, tab:aaltd) are placeholders.
+
+\subsection{Forecasting evaluation protocols}
+\label{sec:protocols}
+
+There is no standard protocol for evaluating forecasters. A protocol fixes the
+forecast origins, the points at which the history given to a model ends and
+its forecast begins (a single origin per series, which is then the train/test
+boundary, or an origin rolled forward through the test period), whether models
+are refitted at each origin, the horizon, how multi-step forecasts are made
+(recursively, feeding one-step predictions back in; directly, one model per
+step; or one model for the whole horizon~\citep{taieb2012review}), whether
+models are local, global or pretrained, and how errors are scaled and
+aggregated~\citep{tashman2000outofsample,hewamalage2023forecast}. Each choice
+can change the ranking. aeon makes the strategy explicit
+(\texttt{iterative\_forecast}, \texttt{direct\_forecast},
+\texttt{series\_to\_series\_forecast}), so one model can be run under different
+protocols.
+
+M4~\citep{makridakis2020m4} holds out the last $h$ points of each of 100{,}000
+series ($h$ from 6 for yearly to 48 for hourly) and forecasts once from that
+single origin. Most series are short (yearly series need only 13 observations)
+and 95\% are yearly, quarterly or monthly. Accuracy is OWA, the mean of sMAPE
+and MASE relative to Naive2, pooled over all series, so weekly and hourly
+series (under 1\%) carry almost no weight; the benchmarks, including the ML
+ones, were run on series deseasonalised by a 90\% autocorrelation test. The
+series are not aligned in time, so global models can leak information across
+series~\citep{ingel2020correlated}. The Monash
+repository~\citep{godahewa2021monash} keeps this single fixed origin for a
+wider set of longer, higher-frequency datasets, with competition horizons where
+they exist and frequency-based ones otherwise.
+
+Deep learning papers usually evaluate on M4 differently.
+TimesNet~\citep{wu2023timesnet}, through the Time-Series-Library, follows
+N-BEATS~\citep{oreshkin2020nbeats}: one global model per frequency is trained
+on windows sampled from the end of all the series, forecasts the whole horizon
+directly from only the last $2h$ observations, and is scored with weekly,
+daily and hourly pooled into one ``Others'' group. Its validation set is the
+M4 test set, so early stopping and checkpoint selection use the test
+values.\footnote{Time-Series-Library, \texttt{Dataset\_M4} loads the test split
+for any flag other than \texttt{train}, and \texttt{vali} scores forecasts
+against it; present from the first commit (\texttt{e08ddc0}, February 2023),
+the code release for TimesNet.} The test points and the
+OWA formula match M4, but the information each model sees does not:
+statistical models use the full history of one series, the deep models a short
+window of every series.
+
+GIFT-Eval~\citep{aksu2024gifteval} mixes protocols within one score. The last
+10\% of each series is split into up to 20 non-overlapping windows, giving a
+rolling origin (M4 keeps its single origin), and horizons are scaled by 1, 10
+and 15 (up to 720 hourly steps). Statistical models are refitted per window on
+at most the last 1{,}000 points, deep models are trained once per dataset, and
+foundation models forecast zero-shot, the decoder-only ones (Chronos, TimesFM)
+recursively, which the authors link to their decline at long horizons.
+
+We evaluate aeon's forecasters under two contrasting protocols with the same
+code: M4 exactly as in the competition (local models, one origin, recursive
+one-step machine learning models), and LSSH-99, 99 long series (up to 10{,}000 points,
+mostly from the Monash repository, including 57 long M4 series) with a rolling
+origin, refitting at each of the last 30 points and forecasting one step ahead.
+On M4 the statistical forecasters win (SCUM OWA 0.845) and every machine
+learning forecaster is worse than Naive2 (DrCIF 1.450); on the long series
+DrCIF is best (MAE relative to naive 0.781, SCUM 0.843)
+(Tables~\ref{tab:m4},~\ref{tab:aaltd}). Neither ranking is wrong; each answers
+a different question.

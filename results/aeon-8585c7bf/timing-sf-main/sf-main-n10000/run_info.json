@@ -1,0 +1,18 @@
+{
+  "command": "scripts/timing_other_stats.py --all-processes --lengths 10000 --repeats 20 --entries statsforecast:Theta statsforecast:DOTM statsforecast:AutoCES aeon:Theta aeon:DOTM aeon:AutoCES --out results/aeon-8585c7bf/timing-sf-main/sf-main-n10000",
+  "statsforecast": {
+    "version": "2.1.1",
+    "path": "/local/ajb2u23/venvs/sf-main/lib/python3.11/site-packages/statsforecast/__init__.py"
+  },
+  "aeon": {
+    "version": "1.6.0",
+    "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+    "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+    "branch": "bench/arima-ets",
+    "dirty": false
+  },
+  "repeats": 20,
+  "lengths": [
+    10000
+  ]
+}

@@ -69,6 +69,7 @@ src/horizon/
 tests/             smoke tests (pytest)
 results/<run>/     one directory per run and mode, see below
 reports/           written comparisons
+paper/             Section 5 of the aeon paper: how to reproduce it, M4 and LSSH-99 league tables
 ```
 
 Each result directory holds `run_info.json`, the raw per-series

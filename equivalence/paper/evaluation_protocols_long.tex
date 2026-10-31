@@ -1,0 +1,140 @@
+% LONG VERSION (kept for other use). Benchmarking and evaluation: forecasting evaluation protocols.
+% Draft text for the aeon paper (2026-10-27). References in evaluation_protocols.bib.
+% Numbers are from aeon 8585c7bf: results/aeon-8585c7bf/m4/owa_all_forecasters.csv
+% and results/aeon-8585c7bf/aaltd/summary.csv in the horizon repository.
+% Table labels (tab:m4, tab:aaltd) are placeholders.
+
+\subsection{Forecasting evaluation protocols}
+\label{sec:protocols}
+
+Unlike classification and regression, where a train/test split of independent
+cases is largely standard, there is no single accepted protocol for evaluating
+forecasters. A protocol fixes several choices, each of which can change the
+ranking of methods: where the forecast origins are placed, an origin being the
+point at which the history given to a model ends and its forecast begins (one
+fixed origin per series, which is then the train/test boundary, or several
+origins rolled forward through the test period, the history at each including
+the test points already passed); whether a model is refitted at each origin; how far
+ahead it forecasts and how multi-step forecasts are produced; whether a model
+is fitted to one series at a time (local) or to a collection of series
+(global), possibly after pretraining on other data; and how errors are scaled
+and aggregated across series~\citep{tashman2000outofsample,hewamalage2023forecast}.
+Multi-step forecasts can be produced \emph{recursively} (also called
+\emph{iterated} or \emph{iterative}), by feeding a one-step model's predictions
+back in as inputs; \emph{directly}, with a separate model for each step ahead;
+or by a single model that outputs the whole horizon at
+once~\citep{taieb2012review}. A rolling-origin evaluation, in turn, moves the
+forecast origin through a test period and forecasts from each origin, with or
+without refitting~\citep{tashman2000outofsample}. These are separate choices
+that are often conflated: a rolling evaluation may use recursive, direct or
+multi-output forecasts at each origin. aeon exposes the forecasting strategies
+explicitly: every forecaster has \texttt{iterative\_forecast} (recursive) and
+\texttt{direct\_forecast} methods, and multi-output models
+\texttt{series\_to\_series\_forecast}, so the same model can be evaluated
+under different protocols.
+
+\paragraph{M4.}
+The M4 competition~\citep{makridakis2020m4} is the most widely used forecasting
+benchmark. It contains 100{,}000 series at six frequencies, each with a single
+fixed origin: the last $h$ observations of every series are held out, with
+$h=6, 8, 18, 13, 14$ and $48$ for yearly, quarterly, monthly, weekly, daily and
+hourly series. The protocol embeds several assumptions. Each series is
+forecast once, from one origin, over the whole horizon, so the score mixes
+one-step accuracy with the accumulation of error over up to 48 steps. The
+series are short (the minimum training lengths are 13, 16, 42, 80, 93 and 700
+observations), and 95\% of them are yearly, quarterly or monthly, so the
+overall score is dominated by short, trended, low-frequency series. Accuracy is
+summarised by the Overall Weighted Average (OWA), the mean of sMAPE and MASE
+each taken relative to Naive2, a seasonal random walk applied to
+deseasonalised series, where seasonality is detected by a 90\% autocorrelation
+test and removed by classical multiplicative decomposition. The benchmark
+methods (including the ML benchmarks, an MLP and an RNN) were applied to series
+deseasonalised in this way. OWA is a ratio of means over all series, so
+frequencies with few series (weekly and hourly, under 1\% of M4) carry almost
+no weight. Finally, the series are not aligned in time: the test period of one
+series can lie before the training period of another, which allows information
+to leak when global models are trained across series~\citep{ingel2020correlated,hewamalage2023forecast}.
+M4 was won by a hybrid of exponential smoothing and a recurrent network trained
+across series~\citep{smyl2020hybrid}; purely local machine learning methods
+performed poorly~\citep{makridakis2018m4results}.
+
+\paragraph{The Monash repository.}
+The Monash Time Series Forecasting Repository~\citep{godahewa2021monash}
+(\url{https://forecastingdata.org/}) collects datasets of related series from
+many domains, including the M competitions, in a common format, and was
+designed for evaluating global models. It keeps M4's single fixed origin: the
+last $h$ observations of each series form the test set, with $h$ taken from the
+original competition where there is one and otherwise set by frequency (for
+example 12 for monthly, 30 for daily and one week, 168, for hourly series).
+Baselines are evaluated by MASE, sMAPE, a modified sMAPE robust to zeros, MAE
+and RMSE. Many of its series are far longer than those of M4, at high
+frequencies with multiple seasonal periods, but each is still evaluated from a
+single origin.
+
+\paragraph{M4 in deep learning papers.}
+Deep learning papers usually evaluate on M4 under a different protocol.
+TimesNet~\citep{wu2023timesnet}, through its code release, the
+Time-Series-Library, follows N-BEATS~\citep{oreshkin2020nbeats}: one global
+model per frequency is trained on windows sampled from the end of all the
+training series of that frequency, it forecasts the whole horizon directly
+from only the last $2h$ observations of each series (12 for yearly series, 96
+for hourly), and results are reported for yearly, quarterly and monthly series
+with weekly, daily and hourly pooled into one ``Others'' group and a weighted
+average over all series. The test points and the OWA formula match M4, but the
+information each model sees does not: a local statistical model uses the full
+history of one series, the deep model a short window of every series of the
+same frequency. Moreover, the library's M4 validation set is the M4 test set:
+\texttt{Dataset\_M4} loads the test split for any flag other than
+\texttt{train}, and the validation loss that drives early stopping and
+checkpoint selection scores forecasts from the end of each training series
+against the test values. The reported score is therefore that of the
+checkpoint selected on the test set. This is present from the library's first
+commit (\texttt{e08ddc0}, February 2023), the code release for TimesNet, and
+in the current version, so it applies to every model evaluated on M4 with the
+library's scripts. It is a model-selection leak, not training on test data,
+and its effect on the published scores has not been measured.
+
+\paragraph{GIFT-Eval.}
+GIFT-Eval~\citep{aksu2024gifteval} was designed for comparing foundation models
+with statistical and deep learning baselines. It combines several protocols.
+The final 10\% of each series is used for testing, split into non-overlapping
+windows the length of the horizon, so the forecast origin rolls through the
+test period in steps of $h$ (at most 20 windows, set by the shortest series in
+a dataset); the M4 datasets keep their single original origin and horizons.
+Horizons are defined per frequency in three settings, the medium and long
+settings being 10 and 15 times the short one (for hourly data, 48, 480 and 720
+steps). Within a window each model forecasts the whole horizon in its own way:
+local statistical models are fitted to the history before the window (truncated
+to the last 1{,}000 observations, with Seasonal Naive substituted when a model
+times out); deep learning models are trained once per dataset and condition on
+a fixed context; and foundation models forecast zero-shot from a context
+window. Decoder-only foundation models such as Chronos and TimesFM produce long
+horizons recursively, and the GIFT-Eval authors attribute part of their decline
+at long horizons to this~\citep{aksu2024gifteval}, whereas others output the
+whole horizon directly. A single GIFT-Eval score therefore aggregates
+rolling-origin evaluation, recursive and direct multi-step forecasting, and
+local, global and pretrained models, over horizons from one to hundreds of
+steps.
+% TODO check against the current leaderboard README: metrics (MASE and CRPS
+% relative to Seasonal Naive, geometric mean across configurations, ranks by
+% CRPS/MASE), as the arXiv v2 text describes MAPE and CRPS.
+
+\paragraph{Our evaluation.}
+To show how the protocol changes the conclusions, we evaluate aeon's
+forecasters under two contrasting protocols with the same code. On M4 we follow
+the competition exactly: one origin per series, the M4 horizons, OWA relative
+to Naive2, and M4-style deseasonalisation for the non-seasonal and machine
+learning forecasters; the machine learning forecasters predict one step and are
+applied recursively. Our second benchmark is LSSH-99 (Long Series, Short Horizon), a collection
+of 99 long series~\citep{banwell26forecasting} (up to 10{,}000 observations, most from the Monash repository, including 57 long
+M4 series) evaluated by rolling origin: each forecaster is refitted at each of
+the last 30 time points and makes a one-step forecast, and accuracy is the mean
+absolute error relative to the naive forecast, aggregated by geometric mean.
+The orderings differ sharply. On M4 the statistical forecasters are best (SCUM
+OWA 0.845, AutoETS 0.914) and every machine learning or deep learning forecaster
+is worse than Naive2 (DrCIF applied to changes 1.450); on the long series with
+one-step rolling-origin forecasts the reverse holds, and DrCIF is the most
+accurate (relative MAE 0.781, against 0.843 for SCUM)
+(Tables~\ref{tab:m4} and~\ref{tab:aaltd}). Neither result is wrong: they
+answer different questions, and a benchmark summarised by one number embeds
+the answer to one of them.

@@ -1,0 +1,58 @@
+{
+  "command": "scripts/sim_other_stats.py --out results/aeon-8585c7bf/sim-other --n-jobs 30",
+  "aeon": {
+    "version": "1.6.0",
+    "path": "/home/ajb2u23/Code/aeon-bench-next/aeon",
+    "commit": "8585c7bf9796a52b50e90f472c7c8718248eceea",
+    "branch": "bench/arima-ets",
+    "dirty": false
+  },
+  "lengths": [
+    100,
+    500
+  ],
+  "replicates": 100,
+  "entries": {
+    "theta": [
+      [
+        "aeon",
+        "aeon",
+        "Theta"
+      ],
+      [
+        "statsforecast",
+        "statsforecast",
+        "Theta"
+      ]
+    ],
+    "dotm": [
+      [
+        "aeon",
+        "aeon",
+        "DOTM"
+      ],
+      [
+        "statsforecast",
+        "statsforecast",
+        "DOTM"
+      ]
+    ],
+    "autoces": [
+      [
+        "aeon",
+        "aeon",
+        "AutoCES"
+      ],
+      [
+        "statsforecast",
+        "statsforecast",
+        "AutoCES"
+      ],
+      [
+        "smooth",
+        "smooth",
+        "AutoCES"
+      ]
+    ]
+  }
+}

@@ -19,5 +19,34 @@
   "python": "3.11.17",
   "platform": "Linux-5.14.0-687.47.1.el9_8.x86_64-x86_64-with-glibc2.34",
   "threads": "1",
-  "numba_cache_dir": "/home/ajb2u23/Code/horizon/scratch/nb-sim-8585.OBbu"
+  "numba_cache_dir": "/home/ajb2u23/Code/horizon/scratch/nb-sim-8585.OBbu",
+  "refills": [
+    {
+      "date": "2026-10-22",
+      "toolkit": "aeon",
+      "processes": [
+        "ets_ann",
+        "ets_aan",
+        "ets_adn"
+      ],
+      "reason": "adapter fix: AutoETS given seasonal_period=1 (was None, which estimated the period) for non-seasonal processes",
+      "command": "python -m horizon run --mode auto --families ets --toolkits aeon --only accuracy --out results/aeon-8585c7bf/auto",
+      "aeon_commit": "8585c7bf9796a52b50e90f472c7c8718248eceea"
+    },
+    {
+      "date": "2026-10-22",
+      "toolkit": "statsmodels (grid)",
+      "processes": "all",
+      "reason": "grid fixes: ARIMA drift/constant search, KPSS lags trunc(3 sqrt(n)/13), ETS without additive-error multiplicative-season models; ARIMA rows redone after keeping the mean for d = 0 and adding R's near-unit-root rejection (roots within 1.01)",
+      "command": "python -m horizon run --mode auto --toolkits 'statsmodels (grid)' --only accuracy --out results/aeon-8585c7bf/auto",
+      "timing_command": "python -m horizon run --mode auto --toolkits 'statsmodels (grid)' --only timing --out results/aeon-8585c7bf/auto"
+    },
+    {
+      "date": "2026-10-22",
+      "toolkit": "smooth 1.2.0",
+      "reason": "added toolkit; run in results/aeon-8585c7bf-smooth/auto (same seeds) and merged",
+      "command": "python -m horizon run --mode auto --toolkits smooth --out results/aeon-8585c7bf-smooth/auto",
+      "note": "auto ETS rows rerun 2026-10-22 with selected_model read from model_name (model_type is unreliable in smooth 1.2.0); forecasts identical"
+    }
+  ]
 }

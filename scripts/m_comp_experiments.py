@@ -57,6 +57,7 @@ import multiprocessing as mp
 import os
 import platform
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -92,6 +93,8 @@ THREAD_ENV_VARS = (
     "MKL_NUM_THREADS",
     "OPENBLAS_NUM_THREADS",
     "NUMBA_NUM_THREADS",
+    "TF_NUM_INTRAOP_THREADS",
+    "TF_NUM_INTEROP_THREADS",
 )
 # Canonical forecasters whose fit/forecast paths are numba-compiled and therefore
 # pay a one-off JIT cost on first call. These are warmed up before timed work so
@@ -119,9 +122,67 @@ NUMBA_WARMUP_FORECASTERS = frozenset(
 NONSEASONAL_AEON_FORECASTERS = frozenset(
     {"ARIMA", "AutoARIMA", "Theta", "TAR", "AutoTAR", "TVP", "CES"}
 )
+# aeon time series regressors wrapped as DrCIFDeltaY is (level windows of 100,
+# target the next change): name -> (module, class, constructor arguments).
+# Interval forests get 50 trees, as DrCIF. Hydra/MultiRocketHydra need torch
+# and FreshPRINCE/TSFresh need tsfresh, neither installed in aeon-fcbench.
+_SEEDED = {"random_state": 0, "n_jobs": 1}
+DELTAY_REGRESSORS = {
+    "CIFDeltaY": ("interval_based", "CanonicalIntervalForestRegressor",
+                  {"n_estimators": 50, **_SEEDED}),
+    "TSFDeltaY": ("interval_based", "TimeSeriesForestRegressor",
+                  {"n_estimators": 50, **_SEEDED}),
+    "RISEDeltaY": ("interval_based", "RandomIntervalSpectralEnsembleRegressor",
+                   {"n_estimators": 50, **_SEEDED}),
+    "IntervalForestDeltaY": ("interval_based", "IntervalForestRegressor",
+                             {"n_estimators": 50, **_SEEDED}),
+    "RandomIntervalDeltaY": ("interval_based", "RandomIntervalRegressor", _SEEDED),
+    "QUANTDeltaY": ("interval_based", "QUANTRegressor", {"random_state": 0}),
+    "Catch22DeltaY": ("feature_based", "Catch22Regressor", _SEEDED),
+    "SummaryDeltaY": ("feature_based", "SummaryRegressor", _SEEDED),
+    "RocketDeltaY": ("convolution_based", "RocketRegressor", _SEEDED),
+    "MiniRocketDeltaY": ("convolution_based", "MiniRocketRegressor", _SEEDED),
+    "MultiRocketDeltaY": ("convolution_based", "MultiRocketRegressor", _SEEDED),
+    "RDSTDeltaY": ("shapelet_based", "RDSTRegressor", _SEEDED),
+    "RISTDeltaY": ("hybrid", "RISTRegressor", _SEEDED),
+    # Euclidean: the default DTW on up to 10,000 training windows is quadratic
+    "KNNDeltaY": ("distance_based", "KNeighborsTimeSeriesRegressor",
+                  {"distance": "euclidean", "n_jobs": 1}),
+}
+# aeon deep learning regressors wrapped the same way, on standardised level
+# windows from the last DL_MAX_TRAIN windows, DL_REGRESSOR_EPOCHS epochs (the
+# defaults, 1500-2000 for most, would take weeks): name -> (class, arguments)
+DL_REGRESSOR_EPOCHS = 100
+DL_DELTAY_REGRESSORS = {
+    "FCNDeltaY": ("FCNRegressor", {}),
+    "ResNetDeltaY": ("ResNetRegressor", {}),
+    "InceptionTimeDeltaY": ("InceptionTimeRegressor", {}),
+    "LITETimeDeltaY": ("LITETimeRegressor", {}),
+    "TimeCNNDeltaY": ("TimeCNNRegressor", {}),
+    "MLPDeltaY": ("MLPRegressor", {}),
+    "EncoderDeltaY": ("EncoderRegressor", {}),
+    "DisjointCNNDeltaY": ("DisjointCNNRegressor", {}),
+    "RecurrentDeltaY": ("RecurrentRegressor", {}),
+}
+# Machine learning and deep learning forecasters, also fitted to deseasonalised
+# series with --deseasonalise, as M4's own ML benchmarks (MLP, RNN) were.
+ML_DL_AEON_FORECASTERS = frozenset(
+    {"SETAR", "SETARTree", "SETARForest", "RegressionForecaster", "RidgeDiff",
+     "RandF", "DrCIF", "DrCIFDiff", "DrCIFDeltaY", "TCNForecaster", "NBeatsForecaster",
+     "DeepARForecaster", "TCNDiff", "DeepARDiff", "NBeatsDiff",
+     "SETARDiff", "SETARTreeDiff", "SETARForestDiff", "RandFDeltaY"}
+    | set(DELTAY_REGRESSORS) | set(DL_DELTAY_REGRESSORS)
+)
+TENSORFLOW_FORECASTERS = frozenset(
+    {"TCNForecaster", "NBeatsForecaster", "DeepARForecaster",
+     "TCNDiff", "DeepARDiff", "NBeatsDiff"} | set(DL_DELTAY_REGRESSORS)
+)
+DESEASONALISED_AEON_FORECASTERS = NONSEASONAL_AEON_FORECASTERS | ML_DL_AEON_FORECASTERS
 DESEASONALISE_ENV_VAR = "M_COMP_DESEASONALISE"
 # "max_p,max_d,max_q" for aeon AutoARIMA (--arima-max-order); unset: aeon defaults
 ARIMA_MAX_ORDER_ENV_VAR = "M_COMP_ARIMA_MAX_ORDER"
+# training history cap for the differenced deep learners (TCNDiff, DeepARDiff, NBeatsDiff)
+DL_MAX_TRAIN = 1000
 WARMUP_SERIES_LENGTH = 64
 WARMUP_PERIOD = 4
 WARMUP_HORIZON = 6
@@ -129,6 +190,7 @@ BACKEND_ALIASES = {
     "aeon": "aeon",
     "statsforecast": "statsforecast",
     "sf": "statsforecast",
+    "smooth": "smooth",
 }
 M4_FILES = {
     "yearly": ("m4_yearly_dataset.tsf", 1, 1),
@@ -152,6 +214,7 @@ FORECASTER_ALIASES = {
     "DeepARForecaster": "DeepARForecaster",
     "NBeatsForecaster": "NBeatsForecaster",
     "NaiveForecaster": "NaiveForecaster",
+    "SeasonalNaive": "SeasonalNaive",
     "RandF": "RandF",
     "RegressionForecaster": "RegressionForecaster",
     "RidgeDiff": "RidgeDiff",
@@ -161,9 +224,19 @@ FORECASTER_ALIASES = {
     "SETARTree": "SETARTree",
     "TAR": "TAR",
     "TCNForecaster": "TCNForecaster",
+    "TCNDiff": "TCNDiff",
+    "DeepARDiff": "DeepARDiff",
+    "NBeatsDiff": "NBeatsDiff",
     "TVP": "TVP",
     "Theta": "Theta",
     "DrCIFDiff": "DrCIFDiff",
+    "DrCIFDeltaY": "DrCIFDeltaY",
+    "SETARDiff": "SETARDiff",
+    "SETARTreeDiff": "SETARTreeDiff",
+    "SETARForestDiff": "SETARForestDiff",
+    "RandFDeltaY": "RandFDeltaY",
+    **{name: name for name in DELTAY_REGRESSORS},
+    **{name: name for name in DL_DELTAY_REGRESSORS},
 }
 
 
@@ -948,6 +1021,37 @@ def _fit_statsforecast_model(model, y: np.ndarray, h: int) -> FitResult:
     )
 
 
+def _fit_smooth(name: str, y: np.ndarray, h: int, period: int) -> FitResult:
+    """Fit smooth's CES (Svetunkov's ADAM package, Python port) with its defaults."""
+    from smooth import CES, AutoCES
+
+    lags = [max(1, int(period))]
+    if name == "AutoCES":
+        model = AutoCES(lags=lags)
+    elif name == "CES":
+        model = CES(lags=lags)
+    else:
+        raise ValueError(f"smooth backend does not support {name!r}.")
+    start = time.perf_counter()
+    # AutoCES.fit returns the selected CES model (as R's auto.ces does)
+    model = model.fit(y)
+    train_seconds = time.perf_counter() - start
+    forecast = _as_float_array(model.predict(h=int(h)).mean)
+    elapsed = time.perf_counter() - start
+    model_name = str(getattr(model, "model_name", type(model).__name__))
+    return FitResult(
+        forecast=forecast,
+        fitted_values=None,
+        residuals=None,
+        train_seconds=train_seconds,
+        elapsed_seconds=elapsed,
+        status="ok",
+        model=model_name,
+        params={"lags": lags},
+        fit_stats={},
+    )
+
+
 def _fit_statsforecast(name: str, y: np.ndarray, h: int, period: int) -> FitResult:
     """Fit a named statsforecast equivalent and return persistent outputs."""
     from statsforecast.models import ARIMA as SFARIMA
@@ -1096,6 +1200,174 @@ class FirstDifferenceRegressionForecaster:
         return forecasts
 
 
+class TargetDifferenceRegressionForecaster:
+    """Regress the next change on a window of levels and forecast levels.
+
+    Inputs are windows of ``window`` consecutive observations of the series;
+    the target is the change from the last observation in the window to the
+    next one, ``y[t + 1] - y[t]``. Forecasts add the predicted change to the
+    last value and recurse. Unlike :class:`FirstDifferenceRegressionForecaster`,
+    only the target is differenced, not the inputs.
+    """
+
+    def __init__(self, window: int, regressor, collection: bool = True):
+        self.window = window
+        self.regressor = regressor
+        # True: aeon collection regressor, windows as (n, 1, window); False:
+        # tabular sklearn regressor, windows as (n, window)
+        self.collection = collection
+
+    def _x(self, X):
+        return X.reshape(X.shape[0], 1, -1) if self.collection else X
+
+    def fit(self, y):
+        """Fit the regressor on level windows with next-step change targets."""
+        from sklearn.base import clone
+
+        y = _as_float_array(y)
+        X, target = self._training_data(y)
+        self.regressor_ = clone(self.regressor)
+        start = time.perf_counter()
+        self.regressor_.fit(self._x(X), target)
+        self.fit_time_millis_ = int((time.perf_counter() - start) * 1000)
+        fitted_changes = _as_float_array(
+            self.regressor_.predict(self._x(X))
+        )
+        last = y[self.window - 1 : -1]
+        self.fitted_values_ = last + fitted_changes
+        self.residuals_ = y[self.window :] - self.fitted_values_
+        self.forecast_ = self.iterative_forecast(y, 1)[0]
+        return self
+
+    def _training_data(self, y):
+        X = np.lib.stride_tricks.sliding_window_view(y, self.window)[:-1]
+        target = y[self.window :] - y[self.window - 1 : -1]
+        return X, target
+
+    def iterative_forecast(self, y, prediction_horizon: int) -> np.ndarray:
+        """Forecast levels by recursively predicting the next change."""
+        history = _as_float_array(y)
+        forecasts = np.empty(int(prediction_horizon), dtype=np.float64)
+        for i in range(int(prediction_horizon)):
+            x = self._x(history[-self.window :].reshape(1, -1))
+            nxt = history[-1] + float(self.regressor_.predict(x)[0])
+            forecasts[i] = nxt
+            history = np.append(history, nxt)
+        return forecasts
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Return experiment metadata parameters."""
+        return {
+            "window": self.window,
+            "target": "change from last observation",
+            "regressor": self.regressor,
+        }
+
+
+class StandardisedTargetDifferenceForecaster(TargetDifferenceRegressionForecaster):
+    """:class:`TargetDifferenceRegressionForecaster` for aeon's deep regressors.
+
+    The series is standardised by the mean and standard deviation of the
+    training history, which is cut to the last ``max_windows`` windows, and the
+    regressor predicts the next change on that scale. In-sample fitted values
+    cover only those windows.
+    """
+
+    def __init__(self, window: int, regressor, max_windows: int):
+        super().__init__(window, regressor)
+        self.max_windows = max_windows
+
+    def fit(self, y):
+        """Standardise the recent history and fit the regressor on it."""
+        import tensorflow as tf
+
+        tf.keras.backend.clear_session()
+        y = _as_float_array(y)[-(self.max_windows + self.window) :]
+        self.mean_ = float(np.mean(y))
+        sd = float(np.std(y))
+        self.scale_ = sd if sd > 0 else 1.0
+        super().fit((y - self.mean_) / self.scale_)
+        self.fitted_values_ = self.fitted_values_ * self.scale_ + self.mean_
+        self.residuals_ = self.residuals_ * self.scale_
+        self.forecast_ = self.forecast_ * self.scale_ + self.mean_
+        return self
+
+    def iterative_forecast(self, y, prediction_horizon: int) -> np.ndarray:
+        """Forecast on the standardised scale and unscale."""
+        z = (_as_float_array(y) - self.mean_) / self.scale_
+        return super().iterative_forecast(z, prediction_horizon) * self.scale_ + self.mean_
+
+
+class StandardisedForecaster:
+    """Fit an aeon forecaster to the standardised series and unscale its forecasts.
+
+    aeon's deep learners do not normalise their input, and on series in the
+    thousands they fail to train (DeepAR forecasts about zero). The series is
+    standardised by its training mean and standard deviation before fitting.
+    The model is fitted once: aeon's ``iterative_forecast`` refits, so
+    one-step models are forecast here by recursing ``predict`` on the fitted
+    model, and multi-step models (N-BEATS) by ``series_to_series_forecast``.
+    """
+
+    def __init__(self, model, difference: bool = False, max_train: int | None = None):
+        self.model = model
+        self.difference = difference
+        self.max_train = max_train
+
+    def _transform(self, y):
+        return np.diff(y) if self.difference else y
+
+    def fit(self, y):
+        """Standardise ``y`` (or its first differences) and fit the inner model."""
+        x = self._transform(_as_float_array(y))
+        if self.max_train:
+            x = x[-self.max_train :]
+        self.mean_ = float(np.mean(x))
+        sd = float(np.std(x))
+        self.scale_ = sd if sd > 0 else 1.0
+        self.model.fit((x - self.mean_) / self.scale_)
+        return self
+
+    def iterative_forecast(self, y, prediction_horizon: int) -> np.ndarray:
+        """Forecast on the standardised scale, then unscale (and undifference)."""
+        y = _as_float_array(y)
+        pred = self._forecast_z((self._transform(y) - self.mean_) / self.scale_,
+                                int(prediction_horizon)) * self.scale_ + self.mean_
+        self._release()
+        return y[-1] + np.cumsum(pred) if self.difference else pred
+
+    def _release(self):
+        """Free the TensorFlow graph: Keras keeps every model built in a process,
+        and long-lived workers grew to 7 GB each and were killed for memory."""
+        import gc
+
+        if "tensorflow" not in sys.modules:  # not a deep learner
+            return
+        import tensorflow as tf
+
+        for attr in ("model_", "training_model_"):
+            if hasattr(self.model, attr):
+                setattr(self.model, attr, None)
+        tf.keras.backend.clear_session()
+        gc.collect()
+
+    def _forecast_z(self, z, h):
+        if getattr(self.model, "horizon", 1) != 1:
+            pred = _as_float_array(self.model.series_to_series_forecast(z, h))
+        else:
+            pred = np.empty(h, dtype=np.float64)
+            for i in range(h):
+                pred[i] = float(np.ravel(self.model.predict(z))[0])
+                z = np.append(z, pred[i])
+        return pred
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Return experiment metadata parameters."""
+        return {"scaling": "standardise by training mean and sd",
+                "difference": self.difference, "max_train": self.max_train,
+                **self.model.get_params(deep=False)}
+
+
 def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
     """Construct an aeon forecaster with sensible defaults for this experiment."""
     window = _resolve_forecaster_window(y, h, period)
@@ -1106,6 +1378,10 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
         from aeon.forecasting import NaiveForecaster
 
         return NaiveForecaster(seasonal_period=season_length)
+    if name == "SeasonalNaive":
+        from aeon.forecasting import NaiveForecaster
+
+        return NaiveForecaster(strategy="seasonal_last", seasonal_period=season_length)
     if name == "RegressionForecaster":
         from aeon.forecasting import RegressionForecaster
 
@@ -1134,6 +1410,14 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
 
         return RegressionForecaster(
             window=regression_window,
+            regressor=DrCIFRegressor(n_estimators=50, random_state=0, n_jobs=1),
+        )
+    if name == "DrCIFDeltaY":
+        from aeon.regression.interval_based import DrCIFRegressor
+
+        # window 100, capped so short series keep a few training windows
+        return TargetDifferenceRegressionForecaster(
+            window=max(2, min(100, int(y.size) - 3)),
             regressor=DrCIFRegressor(n_estimators=50, random_state=0, n_jobs=1),
         )
     if name == "DrCIFDiff":
@@ -1207,18 +1491,64 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
         from aeon.forecasting.machine_learning import SETARForest
 
         return SETARForest()
+    if name in {"SETARDiff", "SETARTreeDiff", "SETARForestDiff"}:
+        # as shipped, on standardised first differences (full history)
+        model = _build_aeon_forecaster(name[: -len("Diff")], np.diff(y), h, period)
+        return StandardisedForecaster(model, difference=True)
+    if name in DL_DELTAY_REGRESSORS:
+        import tempfile
+
+        from aeon.regression import deep_learning
+
+        cls, kwargs = DL_DELTAY_REGRESSORS[name]
+        regressor = getattr(deep_learning, cls)(
+            n_epochs=DL_REGRESSOR_EPOCHS, random_state=0,
+            file_path=tempfile.mkdtemp(prefix="aeon-dl-") + "/", **kwargs
+        )
+        return StandardisedTargetDifferenceForecaster(
+            window=max(2, min(100, int(y.size) - 3)), regressor=regressor,
+            max_windows=DL_MAX_TRAIN,
+        )
+    if name in DELTAY_REGRESSORS:
+        import importlib
+
+        module, cls, kwargs = DELTAY_REGRESSORS[name]
+        regressor = getattr(importlib.import_module(f"aeon.regression.{module}"), cls)
+        return TargetDifferenceRegressionForecaster(
+            window=max(2, min(100, int(y.size) - 3)), regressor=regressor(**kwargs)
+        )
+    if name == "RandFDeltaY":
+        from sklearn.ensemble import RandomForestRegressor
+
+        # as DrCIFDeltaY: level windows of 100, target the next change
+        return TargetDifferenceRegressionForecaster(
+            window=max(2, min(100, int(y.size) - 3)),
+            regressor=RandomForestRegressor(random_state=0),
+            collection=False,
+        )
+    if name in {"TCNDiff", "DeepARDiff", "NBeatsDiff"}:
+        # as the plain deep learners, but on standardised first differences of
+        # at most the last DL_MAX_TRAIN observations (full histories of the long
+        # daily and hourly series made a full M4 run take weeks)
+        base = {"TCNDiff": "TCNForecaster", "DeepARDiff": "DeepARForecaster",
+                "NBeatsDiff": "NBeatsForecaster"}[name]
+        recent = y[-(DL_MAX_TRAIN + 1) :]
+        model = _build_aeon_forecaster(base, recent[1:], h, period).model
+        return StandardisedForecaster(model, difference=True, max_train=DL_MAX_TRAIN)
     if name == "TCNForecaster":
         from aeon.forecasting.deep_learning import TCNForecaster
 
-        return TCNForecaster(window=window, horizon=h)
+        # one-step model, forecast recursively (TCN predicts a single step)
+        return StandardisedForecaster(TCNForecaster(window=window))
     if name == "DeepARForecaster":
         from aeon.forecasting.deep_learning import DeepARForecaster
 
-        return DeepARForecaster(window=window, horizon=h)
+        # one-step model, forecast recursively with iterative_forecast
+        return StandardisedForecaster(DeepARForecaster(window=window))
     if name == "NBeatsForecaster":
         from aeon.forecasting.deep_learning import NBeatsForecaster
 
-        return NBeatsForecaster(window=regression_window, horizon=h)
+        return StandardisedForecaster(NBeatsForecaster(window=regression_window, horizon=h))
     raise ValueError(f"Unknown aeon forecaster {name!r}.")
 
 
@@ -1296,13 +1626,15 @@ def _m4_seasonality_test(y: np.ndarray, period: int) -> bool:
 
 
 def _m4_seasonal_indices(
-    y: np.ndarray, period: int, h: int
+    y: np.ndarray, period: int, h: int, additive: bool = False
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return multiplicative seasonal indices for ``y`` and the next ``h`` points.
 
     Classical multiplicative decomposition as R's ``decompose``: centred moving
     average trend, mean detrended ratio per season position, normalised to mean
     one. Forecast indices repeat the last season, as in the M4 benchmarks.
+    With ``additive`` (R's ``type="additive"``), detrended differences
+    normalised to mean zero, for series that are not strictly positive.
     """
     n, m = y.size, int(period)
     if m % 2 == 0:
@@ -1312,10 +1644,13 @@ def _m4_seasonal_indices(
     half = weights.size // 2
     trend = np.full(n, np.nan)
     trend[half : n - half] = np.convolve(y, weights, mode="valid")
-    ratio = y / trend
+    ratio = y - trend if additive else y / trend
     position = np.arange(n) % m
     figure = np.array([np.nanmean(ratio[position == i]) for i in range(m)])
-    figure /= figure.mean()
+    if additive:
+        figure -= figure.mean()
+    else:
+        figure /= figure.mean()
     return figure[position], figure[np.arange(n, n + h) % m]
 
 
@@ -1324,26 +1659,31 @@ def _fit_deseasonalised(name: str, y: np.ndarray, h: int, period: int) -> FitRes
 
     Seasonal series (by ``_m4_seasonality_test``) are divided by their seasonal
     indices before fitting; forecasts and fitted values are multiplied back.
+    Series that are not strictly positive (zeros in the aaltd solar, traffic and
+    pedestrian series) are decomposed additively instead: indices subtracted,
+    then added back. All M4 series are positive, so M4 runs are unaffected.
     """
     start = time.perf_counter()
     if not _m4_seasonality_test(y, period):
         result = _fit_aeon(name, y, h, period)
         result.params = {**result.params, "deseasonalised": False}
         return result
-    seasonal_in, seasonal_out = _m4_seasonal_indices(y, period, h)
+    additive = bool(np.min(y) <= 0)
+    seasonal_in, seasonal_out = _m4_seasonal_indices(y, period, h, additive)
+    remove, restore = (np.subtract, np.add) if additive else (np.divide, np.multiply)
     overhead = time.perf_counter() - start
-    result = _fit_aeon(name, y / seasonal_in, h, period)
+    result = _fit_aeon(name, remove(y, seasonal_in), h, period)
     if result.forecast is not None:
-        result.forecast = result.forecast * seasonal_out[: result.forecast.size]
+        result.forecast = restore(result.forecast, seasonal_out[: result.forecast.size])
     if result.fitted_values is not None and result.fitted_values.size <= y.size:
         k = result.fitted_values.size
-        result.fitted_values = result.fitted_values * seasonal_in[y.size - k :]
+        result.fitted_values = restore(result.fitted_values, seasonal_in[y.size - k :])
         result.residuals = y[y.size - k :] - result.fitted_values
     result.train_seconds += overhead
     result.elapsed_seconds += overhead
     result.params = {
         **result.params,
-        "deseasonalised": True,
+        "deseasonalised": "additive" if additive else True,
         "seasonal_indices": seasonal_out[: int(period)].tolist(),
     }
     return result
@@ -1358,13 +1698,15 @@ def fit_forecaster(
     try:
         if canonical_backend == "aeon":
             if (
-                canonical_name in NONSEASONAL_AEON_FORECASTERS
+                canonical_name in DESEASONALISED_AEON_FORECASTERS
                 and os.environ.get(DESEASONALISE_ENV_VAR) == "1"
             ):
                 return _fit_deseasonalised(canonical_name, y, h, period)
             return _fit_aeon(canonical_name, y, h, period)
         if canonical_backend == "statsforecast":
             return _fit_statsforecast(canonical_name, y, h, period)
+        if canonical_backend == "smooth":
+            return _fit_smooth(canonical_name, y, h, period)
     except Exception as exc:  # noqa: BLE001
         return FitResult(
             forecast=None,
@@ -1488,6 +1830,17 @@ def _script_args(args: argparse.Namespace) -> dict[str, Any]:
     return {k: v for k, v in vars(args).items() if k != "aeon_info"}
 
 
+def _backend_version(backend: str) -> dict[str, str]:
+    """Installed version of the package behind a non-aeon backend."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    package = BACKEND_ALIASES.get(backend, backend)
+    try:
+        return {package: version(package)}
+    except PackageNotFoundError:
+        return {package: "unknown"}
+
+
 def _write_header(
     path: Path,
     *,
@@ -1520,6 +1873,7 @@ def _write_header(
         "ensembles",
         f"# @script_args {_json_dumps(_script_args(args))}",
         f"# @aeon {_json_dumps(args.aeon_info)}",
+        f"# @package_version {_json_dumps(_backend_version(backend))}",
         f"# @python {platform.python_version()}",
         f"# @host {platform.node()} cpus={os.cpu_count()}",
         f"# @columns {','.join(columns)}",
@@ -1692,7 +2046,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Forecasters to run. Aeon accepts the current exported forecasters; "
             "statsforecast only supports ARIMA/AutoARIMA, ETS/AutoETS, "
-            "CES/AutoCES, DOTM, and Theta."
+            "CES/AutoCES, DOTM, and Theta; smooth only CES and AutoCES."
         ),
     )
     parser.add_argument(
@@ -1761,8 +2115,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Fit aeon forecasters without a seasonal component (ARIMA, "
-            "AutoARIMA, Theta, TAR, AutoTAR, TVP) to series deseasonalised as in "
-            "the M4 benchmarks: 90%% ACF seasonality test, then classical "
+            "AutoARIMA, Theta, TAR, AutoTAR, TVP, CES) and the machine and deep "
+            "learning forecasters to series deseasonalised as in the M4 "
+            "benchmarks: 90%% ACF seasonality test, then classical "
             "multiplicative decomposition."
         ),
     )
@@ -1894,11 +2249,15 @@ def _run_pending_jobs(
     ]
     completed = 0
     # spawn: workers start clean rather than inheriting numba/BLAS state
+    # TensorFlow workers leak ~75 MB per fit even after clear_session, so they
+    # are replaced after each chunk of SERIES_BATCH_SIZE series
+    tf_model = FORECASTER_ALIASES.get(forecaster, forecaster) in TENSORFLOW_FORECASTERS
     with ProcessPoolExecutor(
         max_workers=n_jobs,
         mp_context=mp.get_context("spawn"),
         initializer=_init_worker,
         initargs=([(backend, forecaster)],),
+        max_tasks_per_child=1 if tf_model else None,
     ) as executor:
         futures = [
             executor.submit(_fit_chunk, chunk, backend, forecaster, max_h)
