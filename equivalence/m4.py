@@ -5,7 +5,7 @@ submissions on the official test sets, then compares each aeon forecaster with
 its published counterpart series by series:
 
 - AutoETS against ``ETS`` (R ``forecast::ets``),
-- AutoARIMA against ``ARIMA`` (R ``forecast::auto.arima``),
+- AutoARIMA and AutoSARIMA against ``ARIMA`` (R ``forecast::auto.arima``),
 - SCUM against submission ``036`` (Petropoulos and Svetunkov's SCUM, in R),
 - Theta against the M4 ``Theta`` benchmark,
 
@@ -45,7 +45,8 @@ from horizon.sweep import _tost
 from m4_score import FREQS, M4_HOME, owa_table, read_results, score_runs
 
 # aeon forecaster -> published M4 counterpart (official submission name)
-PAIRS = {"AutoETS": "ETS", "AutoARIMA": "ARIMA", "SCUM": "036", "Theta": "Theta"}
+PAIRS = {"AutoETS": "ETS", "AutoARIMA": "ARIMA", "AutoSARIMA": "ARIMA", "SCUM": "036",
+         "Theta": "Theta"}
 REFERENCE_LABELS = {"ETS": "R ets", "ARIMA": "R auto.arima", "036": "SCUM (M4 036)",
                     "Theta": "M4 Theta"}
 # aeon forecaster tested against each --reference run named "<toolkit> <forecaster>"
@@ -168,7 +169,8 @@ def main() -> None:
         provenance[name] = _provenance(path)
     if not runs:
         raise SystemExit(f"no aeon results under {args.results}/aeon")
-    official = [PAIRS[name] for name in runs if name in PAIRS] + ["Naive2"]
+    official = list(dict.fromkeys(PAIRS[name] for name in runs if name in PAIRS))
+    official += ["Naive2"]
     per_series = score_runs(runs, official, args.official_dir)
 
     args.out.mkdir(parents=True, exist_ok=True)

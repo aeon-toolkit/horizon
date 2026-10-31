@@ -103,6 +103,7 @@ NUMBA_WARMUP_FORECASTERS = frozenset(
     {
         "ARIMA",
         "AutoARIMA",
+        "AutoSARIMA",
         "AutoCES",
         "CES",
         "AutoETS",
@@ -202,6 +203,7 @@ M4_FILES = {
 FORECASTER_ALIASES = {
     "ARIMA": "ARIMA",
     "AutoARIMA": "AutoARIMA",
+    "AutoSARIMA": "AutoSARIMA",
     "AutoCES": "AutoCES",
     "AutoETS": "AutoETS",
     "AutoTAR": "AutoTAR",
@@ -1433,6 +1435,10 @@ def _build_aeon_forecaster(name: str, y: np.ndarray, h: int, period: int):
         from aeon.forecasting.stats import AutoARIMA
 
         return AutoARIMA()
+    if name == "AutoSARIMA":
+        from aeon.forecasting.stats import AutoSARIMA
+
+        return AutoSARIMA(seasonal_period=season_length)
     if name == "ETS":
         from aeon.forecasting.stats import ETS
 
