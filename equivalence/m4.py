@@ -5,7 +5,7 @@ submissions on the official test sets, then compares each aeon forecaster with
 its published counterpart series by series:
 
 - AutoETS against ``ETS`` (R ``forecast::ets``),
-- AutoARIMA against ``ARIMA`` (R ``forecast::auto.arima``),
+- AutoARIMA and AutoSARIMA against ``ARIMA`` (R ``forecast::auto.arima``),
 - SCUM against submission ``036`` (Petropoulos and Svetunkov's SCUM, in R).
 
 Official forecasts are read from ``submission-<name>.csv``.
@@ -40,7 +40,7 @@ from horizon.sweep import _tost
 from m4_score import FREQS, M4_HOME, owa_table, read_results, score_runs
 
 # aeon forecaster -> published M4 counterpart (official submission name)
-PAIRS = {"AutoETS": "ETS", "AutoARIMA": "ARIMA", "SCUM": "036"}
+PAIRS = {"AutoETS": "ETS", "AutoARIMA": "ARIMA", "AutoSARIMA": "ARIMA", "SCUM": "036"}
 REFERENCE_LABELS = {"ETS": "R ets", "ARIMA": "R auto.arima", "036": "SCUM (M4 036)"}
 TIE_TOL = 1e-9
 
@@ -144,7 +144,7 @@ def main() -> None:
             provenance[aeon_name] = _provenance(path)
     if not runs:
         raise SystemExit(f"no {'/'.join(PAIRS)} results under {args.results}/aeon")
-    official = [PAIRS[name] for name in runs] + ["Naive2"]
+    official = list(dict.fromkeys(PAIRS[name] for name in runs)) + ["Naive2"]
     per_series = score_runs(runs, official, args.official_dir)
 
     args.out.mkdir(parents=True, exist_ok=True)
